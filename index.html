@@ -1,25 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>水宅研居｜查驗後台</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
     <h2>水宅研居｜查驗資料後台</h2>
+
     <form id="entry-form">
-      <input type="text" placeholder="瓶號" id="sn" required />
-      <input type="text" placeholder="店家名稱" id="store" required />
-      <input type="datetime-local" placeholder="領取時間" id="receiveTime" required />
-      <button type="submit">記錄領取</button>
+      <input type="text" id="sn" placeholder="📦 瓶號" required>
+      <input type="text" id="store" placeholder="🏠 店家名稱" required>
+      <input type="datetime-local" id="receiveTime" required>
+      <button type="submit">✅ 登記出貨</button>
     </form>
 
     <form id="revoke-form">
-      <input type="text" placeholder="瓶號" id="revokeSn" required />
-      <input type="datetime-local" placeholder="回收時間" id="revokeTime" required />
-      <button type="submit">記錄回收</button>
+      <input type="text" id="revokeSn" placeholder="📦 瓶號" required>
+      <input type="datetime-local" id="revokeTime" required>
+      <button type="submit">♻️ 登記回收</button>
     </form>
 
     <div id="message"></div>
