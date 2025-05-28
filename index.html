@@ -1,31 +1,110 @@
-
 <!DOCTYPE html>
-<html lang="="zh-Hant">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>水宅研居｜防偽後台系統</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水宅後台登錄系統</title>
+  <style>
+    body {
+      font-family: "微軟正黑體", sans-serif;
+      padding: 2rem;
+      max-width: 500px;
+      margin: auto;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    h2 {
+      color: #198754;
+    }
+    input, button {
+      padding: 0.5rem;
+      margin: 0.3rem 0;
+      width: 100%;
+      font-size: 1rem;
+    }
+    button {
+      background-color: #198754;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #157347;
+    }
+    .form-section {
+      margin-bottom: 2rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      background-color: white;
+      border-radius: 8px;
+    }
+    #result {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h2>水宅研居｜防偽資料登錄後台</h2>
+  <h2>🔧 水宅後台登錄系統</h2>
 
-    <h3>📝 登錄出貨資料</h3>
+  <div class="form-section">
+    <h3>登錄瓶號（出貨）</h3>
     <form id="register-form">
-      <input type="text" id="sn-register" placeholder="輸入瓶號" required />
-      <input type="text" id="store" placeholder="輸入店家名稱" required />
-      <button type="submit">登錄出貨</button>
+      <input type="text" id="sn-register" placeholder="瓶號" required />
+      <input type="text" id="model" placeholder="型號（可選）" />
+      <input type="text" id="store" placeholder="使用店家" required />
+      <input type="text" id="operator-register" placeholder="操作者（倉管姓名）" />
+      <button type="submit">✅ 登錄出貨</button>
     </form>
-
-    <h3>♻️ 登錄回收資料</h3>
-    <form id="revoke-form">
-      <input type="text" id="sn-revoke" placeholder="輸入瓶號" required />
-      <button type="submit">登錄回收</button>
-    </form>
-
-    <div id="result"></div>
   </div>
-  <script src="script.js"></script>
+
+  <div class="form-section">
+    <h3>回收瓶號（回收）</h3>
+    <form id="revoke-form">
+      <input type="text" id="sn-revoke" placeholder="瓶號" required />
+      <input type="text" id="operator-revoke" placeholder="操作者（倉管姓名）" />
+      <button type="submit">♻️ 登錄回收</button>
+    </form>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwkeqHS4q0c7QFMiNTAC_Czkw28VBF8TGHC7ifNvY7izmJxltxShUBPZooGTbzMuTL7/exec";
+
+    document.getElementById("register-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const sn = document.getElementById("sn-register").value.trim();
+      const model = document.getElementById("model").value.trim();
+      const store = document.getElementById("store").value.trim();
+      const operator = document.getElementById("operator-register").value.trim();
+
+      if (!sn || !store) return alert("請填寫瓶號與使用店家");
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "register", sn, model, store, operator })
+      });
+      const text = await res.text();
+      document.getElementById("result").innerText = text;
+    });
+
+    document.getElementById("revoke-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const sn = document.getElementById("sn-revoke").value.trim();
+      const operator = document.getElementById("operator-revoke").value.trim();
+
+      if (!sn) return alert("請填寫瓶號");
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", sn, operator })
+      });
+      const text = await res.text();
+      document.getElementById("result").innerText = text;
+    });
+  </script>
 </body>
 </html>
