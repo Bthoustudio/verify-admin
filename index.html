@@ -1,29 +1,30 @@
+
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>水宅研居｜查驗後台</title>
-  <link rel="stylesheet" href="style.css">
+  <title>水宅研居｜防偽後台系統</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
-    <h2>水宅研居｜查驗資料後台</h2>
+    <h2>水宅研居｜防偽資料登錄後台</h2>
 
-    <form id="entry-form">
-      <input type="text" id="sn" placeholder="📦 瓶號" required>
-      <input type="text" id="store" placeholder="🏠 店家名稱" required>
-      <input type="datetime-local" id="receiveTime" required>
-      <button type="submit">✅ 登記出貨</button>
+    <h3>📝 登錄出貨資料</h3>
+    <form id="register-form">
+      <input type="text" id="sn-register" placeholder="輸入瓶號" required />
+      <input type="text" id="store" placeholder="輸入店家名稱" required />
+      <button type="submit">登錄出貨</button>
     </form>
 
+    <h3>♻️ 登錄回收資料</h3>
     <form id="revoke-form">
-      <input type="text" id="revokeSn" placeholder="📦 瓶號" required>
-      <input type="datetime-local" id="revokeTime" required>
-      <button type="submit">♻️ 登記回收</button>
+      <input type="text" id="sn-revoke" placeholder="輸入瓶號" required />
+      <button type="submit">登錄回收</button>
     </form>
 
-    <div id="message"></div>
+    <div id="result"></div>
   </div>
   <script src="script.js"></script>
 </body>

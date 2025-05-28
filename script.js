@@ -1,40 +1,31 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const entryForm = document.getElementById("entry-form");
-  const revokeForm = document.getElementById("revoke-form");
-  const msgBox = document.getElementById("message");
 
-  entryForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const sn = document.getElementById("sn").value.trim();
-    const store = document.getElementById("store").value.trim();
-    const receiveTime = document.getElementById("receiveTime").value;
+const API_URL = "https://script.google.com/macros/s/AKfycbzzjUy242CzvuHyOUtQUoiT18YS8aXEsQIA3BCUci1AOvjWiR13j_pKYrSq6t-7OocR/exec";
 
-    if (!sn || !store || !receiveTime) return;
+document.getElementById("register-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const sn = document.getElementById("sn-register").value.trim();
+  const store = document.getElementById("store").value.trim();
+  if (!sn || !store) return;
 
-    const res = await fetch('https://你的API網址/add', {
-      method: 'POST',
-      body: JSON.stringify({ sn, store, receiveTime }),
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    const result = await res.text();
-    msgBox.innerText = result;
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "register", sn, store })
   });
+  const text = await res.text();
+  document.getElementById("result").innerText = text;
+});
 
-  revokeForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const sn = document.getElementById("revokeSn").value.trim();
-    const revokeTime = document.getElementById("revokeTime").value;
+document.getElementById("revoke-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const sn = document.getElementById("sn-revoke").value.trim();
+  if (!sn) return;
 
-    if (!sn || !revokeTime) return;
-
-    const res = await fetch('https://你的API網址/revoke', {
-      method: 'POST',
-      body: JSON.stringify({ sn, revokeTime }),
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    const result = await res.text();
-    msgBox.innerText = result;
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "revoke", sn })
   });
+  const text = await res.text();
+  document.getElementById("result").innerText = text;
 });
