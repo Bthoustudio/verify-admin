@@ -1,5 +1,5 @@
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwkeqHS4q0c7QFMiNTAC_Czkw28VBF8TGHC7ifNvY7izmJxltxShUBPZooGTbzMuTL7/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwV1hKaEt40z_HaeZQNXEBAKumIHzvc3DP0XTBkuMSNy-aCj_tF-rC4dOBBONyEsThZ/exec";
 
 document.getElementById("register-form").addEventListener("submit", async (e) => {
   e.preventDefault();
