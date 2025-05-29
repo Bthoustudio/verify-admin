@@ -15,21 +15,10 @@
     h2 {
       color: #0c7c59;
     }
-    #startScanBtn {
-      font-size: 22px;
-      padding: 18px 40px;
-      background-color: #0c7c59;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-      cursor: pointer;
-      width: 80%;
-      max-width: 320px;
-      margin-top: 60px;
-    }
     #qr-reader {
-      margin-top: 30px;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 400px;
     }
     input {
       width: 90%;
@@ -39,10 +28,10 @@
       font-size: 16px;
     }
     button.action-btn {
-      padding: 12px 24px;
+      padding: 14px 28px;
       font-size: 18px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       margin: 10px;
       cursor: pointer;
     }
@@ -63,11 +52,7 @@
 <body>
   <h2>📦 倉庫掃碼登錄系統</h2>
 
-  <div id="start-button-box">
-    <button id="startScanBtn">📷 點我開始掃描</button>
-  </div>
-
-  <div id="qr-reader" style="display:none;"></div>
+  <div id="qr-reader"></div>
 
   <div id="result-box" style="display:none;">
     <p id="snDisplay">瓶號：--</p>
@@ -85,6 +70,46 @@
   <script>
     const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
     let currentSN = "";
+    const html5QrCode = new Html5Qrcode("qr-reader");
+
+    function startCamera() {
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          const backCamera = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
+          html5QrCode.start(
+            backCamera.id,
+            { fps: 10, qrbox: 250 },
+            onScanSuccess,
+            onScanFailure
+          );
+        } else {
+          alert("❌ 沒有找到可用相機裝置");
+        }
+      }).catch(err => {
+        alert("❌ 啟用相機失敗：" + err);
+      });
+    }
+
+    function onScanSuccess(decodedText) {
+      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
+      const sn = urlParams.get("sn");
+
+      if (!sn) {
+        alert("⚠️ 掃描結果無效，找不到 sn 參數");
+        return;
+      }
+
+      currentSN = sn;
+      document.getElementById("snDisplay").textContent = `🎯 瓶號：${sn}`;
+      document.getElementById("qr-reader").style.display = "none";
+      document.getElementById("result-box").style.display = "block";
+
+      html5QrCode.stop();
+    }
+
+    function onScanFailure(error) {
+      // 不顯示錯誤，保持安靜掃描
+    }
 
     function submitData(action) {
       const shop = document.getElementById("shopInput").value;
@@ -114,35 +139,10 @@
       });
     }
 
-    document.getElementById("startScanBtn").addEventListener("click", () => {
-      document.getElementById("start-button-box").style.display = "none";
-      document.getElementById("qr-reader").style.display = "block";
-
-      html5QrcodeScanner.render(onScanSuccess);
-    });
-
-    const html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
-      fps: 10,
-      qrbox: 250
-    });
-
-    function onScanSuccess(decodedText) {
-      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-      const sn = urlParams.get("sn");
-
-      if (!sn) {
-        alert("⚠️ 掃描結果無效，找不到 sn 參數");
-        return;
-      }
-
-      currentSN = sn;
-      document.getElementById("snDisplay").textContent = `🎯 瓶號：${sn}`;
-      document.getElementById("qr-reader").style.display = "none";
-      document.getElementById("result-box").style.display = "block";
-
-      html5QrcodeScanner.clear();
-    }
+    // 自動啟動後鏡頭掃碼
+    window.onload = () => {
+      startCamera();
+    };
   </script>
 </body>
 </html>
-
