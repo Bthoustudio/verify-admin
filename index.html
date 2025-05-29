@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼登錄</title>
+  <title>倉管掃碼系統｜出貨／回收雙模式</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
@@ -12,130 +12,132 @@
       background-color: #f9f9f9;
       text-align: center;
     }
-    h2 {
-      color: #0c7c59;
-    }
-    #qr-reader {
-      margin: 0 auto;
-      width: 100%;
-      max-width: 400px;
-    }
-    input {
-      width: 90%;
-      max-width: 300px;
-      padding: 10px;
-      margin: 10px 0;
-      font-size: 16px;
-    }
-    button.action-btn {
+    h2 { color: #0c7c59; }
+    #qr-reader { margin: 0 auto; width: 100%; max-width: 400px; }
+    #status { margin-top: 10px; font-weight: bold; }
+    .tag { display: inline-block; margin: 6px; padding: 6px 12px; background: #ddd; border-radius: 6px; }
+    button {
       padding: 14px 28px;
       font-size: 18px;
       border: none;
-      border-radius: 10px;
-      margin: 10px;
-      cursor: pointer;
-    }
-    .register {
+      border-radius: 8px;
+      margin-top: 16px;
       background-color: #007bff;
       color: white;
+      cursor: pointer;
     }
-    .revoke {
-      background-color: #f39c12;
-      color: white;
-    }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-    }
+    #result-box { margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h2>📦 倉庫掃碼登錄系統</h2>
+  <h2>📦 倉庫掃碼系統（出貨／回收模式）</h2>
 
   <div id="qr-reader"></div>
 
+  <div id="status"></div>
+
   <div id="result-box" style="display:none;">
-    <p id="snDisplay">瓶號：--</p>
-
-    <input type="text" id="shopInput" placeholder="請輸入使用店家" />
-    <input type="text" id="operatorInput" placeholder="請輸入操作者（可留空）" />
-
-    <br />
-    <button class="action-btn register" onclick="submitData('register')">✅ 出貨登錄</button>
-    <button class="action-btn revoke" onclick="submitData('revoke')">🔁 回收登錄</button>
-
-    <p id="status"></p>
+    <p id="mode-display">模式：--</p>
+    <p id="shop-display"></p>
+    <div>已掃描瓶號：</div>
+    <div id="sn-list"></div>
+    <button onclick="submitAll()">📤 送出資料</button>
   </div>
 
   <script>
     const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
-    let currentSN = "";
+
+    let mode = null; // "register" or "revoke"
+    let shopName = "";
+    let scannedSNs = [];
     const html5QrCode = new Html5Qrcode("qr-reader");
 
-    function startCamera() {
-      html5QrCode.start(
-        { facingMode: "environment" },  // 🚀 強制使用後鏡頭
-        { fps: 10, qrbox: 250 },
-        onScanSuccess,
-        onScanFailure
-      ).catch(err => {
-        alert("❌ 啟用相機失敗：" + err);
-      });
+    function updateUI() {
+      document.getElementById("result-box").style.display = "block";
+      document.getElementById("mode-display").textContent = `模式：${mode === 'register' ? '出貨' : '回收'}`;
+      document.getElementById("shop-display").textContent = mode === 'register' ? `店家：${shopName}` : '';
+      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
     }
 
     function onScanSuccess(decodedText) {
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
       const sn = urlParams.get("sn");
+      const shop = urlParams.get("shop");
 
-      if (!sn) {
-        alert("⚠️ 掃描結果無效，找不到 sn 參數");
+      if (!mode) {
+        if (shop) {
+          mode = "register";
+          shopName = shop;
+          document.getElementById("status").textContent = `✅ 已啟動出貨模式（店家：${shopName}）`;
+        } else if (sn) {
+          mode = "revoke";
+          document.getElementById("status").textContent = `🔁 已啟動回收模式`;
+        } else {
+          document.getElementById("status").textContent = "⚠️ 找不到 sn 或 shop，請掃描正確 QR Code";
+          return;
+        }
+        updateUI();
         return;
       }
 
-      currentSN = sn;
-      document.getElementById("snDisplay").textContent = `🎯 瓶號：${sn}`;
-      document.getElementById("qr-reader").style.display = "none";
-      document.getElementById("result-box").style.display = "block";
-
-      html5QrCode.stop();
+      if (sn) {
+        if (!scannedSNs.includes(sn)) {
+          scannedSNs.push(sn);
+          updateUI();
+        } else {
+          document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
+        }
+      } else if (shop) {
+        document.getElementById("status").textContent = `⚠️ 已在回收模式，無法掃描店家 QR`;
+      } else {
+        document.getElementById("status").textContent = `⚠️ 無效的 QR Code`;
+      }
     }
 
     function onScanFailure(error) {
-      // 可保持安靜掃描，不顯示錯誤
+      // 安靜掃描，不顯示錯誤
     }
 
-    function submitData(action) {
-      const shop = document.getElementById("shopInput").value;
-      const operator = document.getElementById("operatorInput").value || "倉管";
-
-      if (!currentSN || !shop) {
-        document.getElementById("status").textContent = "⚠️ 請確認已掃碼並填寫店家名稱";
+    function submitAll() {
+      if (scannedSNs.length === 0) {
+        alert("請至少掃描一瓶");
         return;
       }
+
+      const payload = {
+        mode: mode,
+        shop: shopName,
+        sn_list: scannedSNs,
+        operator: "倉管"  // 可加輸入欄位自訂
+      };
 
       fetch(webhookURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sn: currentSN,
-          shop: shop,
-          operator: operator,
-          action: action
-        })
+        body: JSON.stringify(payload)
       })
       .then(res => {
         if (res.ok) {
-          document.getElementById("status").textContent = "✅ 成功送出！";
+          alert("✅ 資料送出成功！");
+          location.reload();
         } else {
-          document.getElementById("status").textContent = "❌ 發送失敗，請稍後再試";
+          alert("❌ 發送失敗");
         }
       });
     }
 
-    // 頁面一載入就啟動後鏡頭掃碼
+    // 啟動掃碼（強制使用後鏡頭）
     window.onload = () => {
-      startCamera();
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess,
+        onScanFailure
+      ).catch(err => {
+        alert("❌ 相機啟動失敗：" + err);
+      });
     };
   </script>
 </body>
 </html>
+
