@@ -32,12 +32,19 @@
 <body>
   <h2>📦 倉庫掃碼系統（出貨／回收模式）</h2>
 
+  <!-- 嗶聲音效 -->
   <audio id="beep" src="beep.mp3" preload="auto"></audio>
 
-  <div id="qr-reader"></div>
+  <!-- 啟動掃碼按鈕 -->
+  <div id="start-box">
+    <button id="startBtn">📷 點我開始掃描</button>
+  </div>
 
+  <!-- 掃描區 -->
+  <div id="qr-reader" style="display:none;"></div>
   <div id="status"></div>
 
+  <!-- 掃描結果區 -->
   <div id="result-box" style="display:none;">
     <p id="mode-display">模式：--</p>
     <p id="shop-display"></p>
@@ -52,7 +59,7 @@
     let mode = null;
     let shopName = "";
     let scannedSNs = [];
-    const html5QrCode = new Html5Qrcode("qr-reader");
+    let html5QrCode;
 
     function playBeep() {
       const beep = document.getElementById("beep");
@@ -106,7 +113,7 @@
     }
 
     function onScanFailure(error) {
-      // 安靜掃描，不顯示錯誤
+      // 靜音掃描失敗
     }
 
     function submitAll() {
@@ -137,7 +144,11 @@
       });
     }
 
-    window.onload = () => {
+    document.getElementById("startBtn").addEventListener("click", () => {
+      document.getElementById("start-box").style.display = "none";
+      document.getElementById("qr-reader").style.display = "block";
+
+      html5QrCode = new Html5Qrcode("qr-reader");
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
@@ -146,9 +157,7 @@
       ).catch(err => {
         alert("❌ 相機啟動失敗：" + err);
       });
-    };
+    });
   </script>
 </body>
 </html>
-
-
