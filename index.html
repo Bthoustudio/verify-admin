@@ -55,20 +55,20 @@
     let scannedSNs = [];
     let html5QrCode;
 
+    let lastScanTime = 0;
+    const scanCooldown = 1000; // 1秒冷卻
+
     function playBeep() {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-
       oscillator.type = "square";
       oscillator.frequency.setValueAtTime(600, ctx.currentTime);
       gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-
       oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.1); // 100ms 嗶聲
+      oscillator.stop(ctx.currentTime + 0.1); // 100ms
     }
 
     function updateUI() {
@@ -79,6 +79,10 @@
     }
 
     function onScanSuccess(decodedText) {
+      const now = Date.now();
+      if (now - lastScanTime < scanCooldown) return;
+      lastScanTime = now;
+
       playBeep();
 
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
@@ -116,7 +120,7 @@
     }
 
     function onScanFailure(error) {
-      // 靜音掃描錯誤
+      // 不顯示錯誤
     }
 
     function submitAll() {
@@ -164,4 +168,3 @@
   </script>
 </body>
 </html>
-
