@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>倉管掃碼登錄系統</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #qr-reader { width: 100%; max-width: 400px; margin: auto; }
+    #result-box { margin-top: 20px; }
+    label { font-weight: bold; }
+    input { width: 100%; padding: 6px; margin-bottom: 10px; }
+    button { padding: 10px 20px; margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h2>📦 倉庫掃碼登錄</h2>
+
+  <div id="qr-reader"></div>
+
+  <div id="result-box" style="display:none;">
+    <p id="snDisplay">瓶號：--</p>
+
+    <label>使用店家：</label>
+    <input type="text" id="shopInput" placeholder="請輸入店家名稱" />
+
+    <label>操作者：</label>
+    <input type="text" id="operatorInput" placeholder="請輸入操作者（可留空）" />
+
+    <button onclick="submitData('register')">✅ 出貨登錄</button>
+    <button onclick="submitData('revoke')">🔁 回收登錄</button>
+
+    <p id="status"></p>
+  </div>
+
+  <script>
+    const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
+    let currentSN = "";
+
+    function submitData(action) {
+      const shop = document.getElementById("shopInput").value;
+      const operator = document.getElementById("operatorInput").value || "倉管";
+
+      if (!currentSN || !shop) {
+        document.getElementById("status").textContent = "⚠️ 請確認已掃碼並填寫店家名稱";
+        return;
+      }
+
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sn: currentSN,
+          shop: shop,
+          operator: operator,
+          action: action
+        })
+      })
+      .then(res => {
+        if (res.ok) {
+          document.getElementById("status").textContent = "✅ 成功送出！";
+        } else {
+          document.getElementById("status").textContent = "❌ 發送失敗！";
+        }
+      });
+    }
+
+    function onScanSuccess(decodedText) {
+      // 解析 sn 參數
+      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
+      const sn = urlParams.get("sn");
+      if (!sn) {
+        alert("掃描失敗：找不到 sn 參數");
+        return;
+      }
+
+      currentSN = sn;
+      document.getElementById("snDisplay").textContent = `🎯 瓶號：${sn}`;
+      document.getElementById("qr-reader").style.display = "none";
+      document.getElementById("result-box").style.display = "block";
+
+      html5QrcodeScanner.clear();
+    }
+
+    const html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
+      fps: 10,
+      qrbox: 250
+    });
+    html5QrcodeScanner.render(onScanSuccess);
+  </script>
+</body>
+</html>
