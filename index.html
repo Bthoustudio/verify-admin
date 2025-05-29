@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="="zh-TW">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉管掃碼系統｜出貨／回收雙模式</title>
+  <title>倉庫掃碼系統｜出貨／回收雙模式</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
@@ -32,6 +32,8 @@
 <body>
   <h2>📦 倉庫掃碼系統（出貨／回收模式）</h2>
 
+  <audio id="beep" src="beep.mp3" preload="auto"></audio>
+
   <div id="qr-reader"></div>
 
   <div id="status"></div>
@@ -47,10 +49,17 @@
   <script>
     const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
 
-    let mode = null; // "register" or "revoke"
+    let mode = null;
     let shopName = "";
     let scannedSNs = [];
     const html5QrCode = new Html5Qrcode("qr-reader");
+
+    function playBeep() {
+      const beep = document.getElementById("beep");
+      if (beep) {
+        beep.play().catch(() => {});
+      }
+    }
 
     function updateUI() {
       document.getElementById("result-box").style.display = "block";
@@ -60,6 +69,8 @@
     }
 
     function onScanSuccess(decodedText) {
+      playBeep();
+
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
       const sn = urlParams.get("sn");
       const shop = urlParams.get("shop");
@@ -108,7 +119,7 @@
         mode: mode,
         shop: shopName,
         sn_list: scannedSNs,
-        operator: "倉管"  // 可加輸入欄位自訂
+        operator: "倉管"
       };
 
       fetch(webhookURL, {
@@ -126,7 +137,6 @@
       });
     }
 
-    // 啟動掃碼（強制使用後鏡頭）
     window.onload = () => {
       html5QrCode.start(
         { facingMode: "environment" },
@@ -140,4 +150,5 @@
   </script>
 </body>
 </html>
+
 
