@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼系統</title>
+  <title>倉庫掃碼系統｜出貨／回收模式</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
@@ -32,19 +32,13 @@
 <body>
   <h2>📦 倉庫掃碼系統（出貨／回收模式）</h2>
 
-  <!-- 嗶聲音效 -->
-  <audio id="beep" src="beep.mp3" preload="auto"></audio>
-
-  <!-- 啟動掃碼按鈕 -->
   <div id="start-box">
     <button id="startBtn">📷 點我開始掃描</button>
   </div>
 
-  <!-- 掃描區 -->
   <div id="qr-reader" style="display:none;"></div>
   <div id="status"></div>
 
-  <!-- 掃描結果區 -->
   <div id="result-box" style="display:none;">
     <p id="mode-display">模式：--</p>
     <p id="shop-display"></p>
@@ -62,10 +56,19 @@
     let html5QrCode;
 
     function playBeep() {
-      const beep = document.getElementById("beep");
-      if (beep) {
-        beep.play().catch(() => {});
-      }
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.1); // 100ms 嗶聲
     }
 
     function updateUI() {
@@ -113,7 +116,7 @@
     }
 
     function onScanFailure(error) {
-      // 靜音掃描失敗
+      // 靜音掃描錯誤
     }
 
     function submitAll() {
@@ -161,3 +164,4 @@
   </script>
 </body>
 </html>
+
