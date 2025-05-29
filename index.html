@@ -12,20 +12,36 @@
       background-color: #f9f9f9;
       text-align: center;
     }
-    h2 { color: #0c7c59; }
+    h2 {
+      color: #0c7c59;
+      margin-bottom: 24px;
+    }
     button {
-      padding: 14px 28px;
-      font-size: 18px;
+      display: block;
+      width: 80%;
+      max-width: 300px;
+      margin: 12px auto;
+      padding: 16px;
+      font-size: 20px;
       border: none;
       border-radius: 8px;
-      margin: 10px;
       background-color: #007bff;
       color: white;
       cursor: pointer;
     }
     .hidden { display: none; }
-    #qr-reader { margin: 0 auto; width: 100%; max-width: 400px; }
-    .tag { display: inline-block; margin: 6px; padding: 6px 12px; background: #ddd; border-radius: 6px; }
+    #qr-reader {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 400px;
+    }
+    .tag {
+      display: inline-block;
+      margin: 6px;
+      padding: 6px 12px;
+      background: #ddd;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -37,7 +53,6 @@
   </div>
 
   <div id="instructions"></div>
-
   <div id="qr-reader" class="hidden"></div>
   <div id="status"></div>
 
@@ -46,7 +61,6 @@
     <div>已掃描瓶號：</div>
     <div id="sn-list"></div>
     <button onclick="submitAll()">📤 送出資料</button>
-    <br><br>
     <button onclick="location.reload()">🔙 回主頁</button>
   </div>
 
@@ -69,13 +83,10 @@
       gainNode.connect(ctx.destination);
       gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
 
-      if (type === "error") {
-        oscillator.frequency.setValueAtTime(200, ctx.currentTime);
-      } else if (type === "send") {
-        oscillator.frequency.setValueAtTime(900, ctx.currentTime);
-      } else {
-        oscillator.frequency.setValueAtTime(600, ctx.currentTime);
-      }
+      oscillator.frequency.setValueAtTime(
+        type === "error" ? 200 : type === "send" ? 900 : 600,
+        ctx.currentTime
+      );
 
       oscillator.type = "square";
       oscillator.start();
@@ -96,11 +107,10 @@
         () => {}
       );
 
-      if (mode === "register") {
-        document.getElementById("instructions").innerHTML = "請先掃描【店家 QR】，再掃瓶號 QR。";
-      } else {
-        document.getElementById("instructions").innerHTML = "請直接掃描【瓶身 QR】以進行回收註銷。";
-      }
+      document.getElementById("instructions").innerHTML =
+        mode === "register"
+          ? "請先掃描【店家 QR】，再掃瓶號 QR。"
+          : "請直接掃描【瓶身 QR】以進行回收註銷。";
     }
 
     function onScanSuccess(decodedText) {
@@ -149,11 +159,14 @@
     }
 
     function updateUI() {
-      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
+      document.getElementById("sn-list").innerHTML = scannedSNs
+        .map(sn => `<span class="tag">${sn}</span>`)
+        .join('');
     }
 
     function submitAll() {
       if (scannedSNs.length === 0) return;
+
       const payload = {
         mode: mode,
         shop: shopName,
@@ -168,7 +181,7 @@
       }).then(res => {
         if (res.ok) {
           playBeep("send");
-          if (mode === 'register') {
+          if (mode === "register") {
             shopName = "";
             scannedSNs = [];
             updateUI();
@@ -186,5 +199,3 @@
   </script>
 </body>
 </html>
-
-
