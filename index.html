@@ -73,19 +73,12 @@
     const html5QrCode = new Html5Qrcode("qr-reader");
 
     function startCamera() {
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          const backCamera = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
-          html5QrCode.start(
-            backCamera.id,
-            { fps: 10, qrbox: 250 },
-            onScanSuccess,
-            onScanFailure
-          );
-        } else {
-          alert("❌ 沒有找到可用相機裝置");
-        }
-      }).catch(err => {
+      html5QrCode.start(
+        { facingMode: "environment" },  // 🚀 強制使用後鏡頭
+        { fps: 10, qrbox: 250 },
+        onScanSuccess,
+        onScanFailure
+      ).catch(err => {
         alert("❌ 啟用相機失敗：" + err);
       });
     }
@@ -108,7 +101,7 @@
     }
 
     function onScanFailure(error) {
-      // 不顯示錯誤，保持安靜掃描
+      // 可保持安靜掃描，不顯示錯誤
     }
 
     function submitData(action) {
@@ -139,7 +132,7 @@
       });
     }
 
-    // 自動啟動後鏡頭掃碼
+    // 頁面一載入就啟動後鏡頭掃碼
     window.onload = () => {
       startCamera();
     };
