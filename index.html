@@ -2,34 +2,82 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>倉管掃碼登錄系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>倉庫掃碼登錄</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #qr-reader { width: 100%; max-width: 400px; margin: auto; }
-    #result-box { margin-top: 20px; }
-    label { font-weight: bold; }
-    input { width: 100%; padding: 6px; margin-bottom: 10px; }
-    button { padding: 10px 20px; margin-right: 10px; }
+    body {
+      font-family: "Segoe UI", sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+      text-align: center;
+    }
+    h2 {
+      color: #0c7c59;
+    }
+    #startScanBtn {
+      font-size: 22px;
+      padding: 18px 40px;
+      background-color: #0c7c59;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      width: 80%;
+      max-width: 320px;
+      margin-top: 60px;
+    }
+    #qr-reader {
+      margin-top: 30px;
+    }
+    input {
+      width: 90%;
+      max-width: 300px;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    button.action-btn {
+      padding: 12px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    .register {
+      background-color: #007bff;
+      color: white;
+    }
+    .revoke {
+      background-color: #f39c12;
+      color: white;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <h2>📦 倉庫掃碼登錄</h2>
+  <h2>📦 倉庫掃碼登錄系統</h2>
 
-  <div id="qr-reader"></div>
+  <div id="start-button-box">
+    <button id="startScanBtn">📷 點我開始掃描</button>
+  </div>
+
+  <div id="qr-reader" style="display:none;"></div>
 
   <div id="result-box" style="display:none;">
     <p id="snDisplay">瓶號：--</p>
 
-    <label>使用店家：</label>
-    <input type="text" id="shopInput" placeholder="請輸入店家名稱" />
-
-    <label>操作者：</label>
+    <input type="text" id="shopInput" placeholder="請輸入使用店家" />
     <input type="text" id="operatorInput" placeholder="請輸入操作者（可留空）" />
 
-    <button onclick="submitData('register')">✅ 出貨登錄</button>
-    <button onclick="submitData('revoke')">🔁 回收登錄</button>
+    <br />
+    <button class="action-btn register" onclick="submitData('register')">✅ 出貨登錄</button>
+    <button class="action-btn revoke" onclick="submitData('revoke')">🔁 回收登錄</button>
 
     <p id="status"></p>
   </div>
@@ -61,17 +109,29 @@
         if (res.ok) {
           document.getElementById("status").textContent = "✅ 成功送出！";
         } else {
-          document.getElementById("status").textContent = "❌ 發送失敗！";
+          document.getElementById("status").textContent = "❌ 發送失敗，請稍後再試";
         }
       });
     }
 
+    document.getElementById("startScanBtn").addEventListener("click", () => {
+      document.getElementById("start-button-box").style.display = "none";
+      document.getElementById("qr-reader").style.display = "block";
+
+      html5QrcodeScanner.render(onScanSuccess);
+    });
+
+    const html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
+      fps: 10,
+      qrbox: 250
+    });
+
     function onScanSuccess(decodedText) {
-      // 解析 sn 參數
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
       const sn = urlParams.get("sn");
+
       if (!sn) {
-        alert("掃描失敗：找不到 sn 參數");
+        alert("⚠️ 掃描結果無效，找不到 sn 參數");
         return;
       }
 
@@ -82,12 +142,7 @@
 
       html5QrcodeScanner.clear();
     }
-
-    const html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
-      fps: 10,
-      qrbox: 250
-    });
-    html5QrcodeScanner.render(onScanSuccess);
   </script>
 </body>
 </html>
+
