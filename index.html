@@ -56,19 +56,30 @@
     let html5QrCode;
 
     let lastScanTime = 0;
-    const scanCooldown = 1000; // 1秒冷卻
+    const scanCooldown = 1000;
 
-    function playBeep() {
+    function playBeep(type = "success") {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-      oscillator.type = "square";
-      oscillator.frequency.setValueAtTime(600, ctx.currentTime);
-      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.1); // 100ms
+
+      if (type === "error") {
+        oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        oscillator.type = "sine";
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.2); // 200ms
+      } else {
+        oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        oscillator.type = "square";
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.1); // 100ms
+      }
     }
 
     function updateUI() {
@@ -83,8 +94,6 @@
       if (now - lastScanTime < scanCooldown) return;
       lastScanTime = now;
 
-      playBeep();
-
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
       const sn = urlParams.get("sn");
       const shop = urlParams.get("shop");
@@ -94,11 +103,14 @@
           mode = "register";
           shopName = shop;
           document.getElementById("status").textContent = `✅ 已啟動出貨模式（店家：${shopName}）`;
+          playBeep("success");
         } else if (sn) {
           mode = "revoke";
           document.getElementById("status").textContent = `🔁 已啟動回收模式`;
+          playBeep("success");
         } else {
           document.getElementById("status").textContent = "⚠️ 找不到 sn 或 shop，請掃描正確 QR Code";
+          playBeep("error");
           return;
         }
         updateUI();
@@ -108,19 +120,23 @@
       if (sn) {
         if (!scannedSNs.includes(sn)) {
           scannedSNs.push(sn);
+          playBeep("success");
           updateUI();
         } else {
           document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
+          playBeep("error");
         }
       } else if (shop) {
         document.getElementById("status").textContent = `⚠️ 已在回收模式，無法掃描店家 QR`;
+        playBeep("error");
       } else {
         document.getElementById("status").textContent = `⚠️ 無效的 QR Code`;
+        playBeep("error");
       }
     }
 
     function onScanFailure(error) {
-      // 不顯示錯誤
+      // 靜默處理
     }
 
     function submitAll() {
@@ -168,3 +184,4 @@
   </script>
 </body>
 </html>
+
