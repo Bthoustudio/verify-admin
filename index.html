@@ -47,12 +47,18 @@
       margin-top: 10px;
       color: #d00;
     }
-    select {
-      font-size: 20px;
-      padding: 10px;
-      margin-top: 10px;
-    }
   </style>
+  <script>
+    // 前端密碼保護
+    const correctPassword = "96848264"; // 自訂密碼
+    window.onload = function () {
+      const entered = prompt("請輸入存取密碼：");
+      if (entered !== correctPassword) {
+        alert("密碼錯誤，無法使用！");
+        document.body.innerHTML = "<h3>⛔️ 未經授權</h3>";
+      }
+    };
+  </script>
 </head>
 <body>
   <h2>📦 倉庫掃碼系統</h2>
@@ -63,7 +69,6 @@
   </div>
 
   <div id="instructions"></div>
-  <div id="shop-select-box" class="hidden"></div>
   <div id="qr-reader" class="hidden"></div>
   <div id="status"></div>
 
@@ -77,7 +82,6 @@
 
   <script>
     const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
-    const shopListURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
 
     let mode = null;
     let shopName = "";
@@ -108,46 +112,9 @@
     function setMode(selectedMode) {
       mode = selectedMode;
       document.getElementById("mode-selection").style.display = "none";
+      document.getElementById("qr-reader").classList.remove("hidden");
       document.getElementById("result-box").classList.remove("hidden");
 
-      if (mode === "register") {
-        document.getElementById("instructions").textContent = "請選擇出貨對象，再掃描瓶號 QR。";
-        document.getElementById("shop-select-box").classList.remove("hidden");
-        loadShopList();
-      } else {
-        document.getElementById("instructions").textContent = "請直接掃描【瓶身 QR】以進行回收註銷。";
-        document.getElementById("qr-reader").classList.remove("hidden");
-        startScanner();
-      }
-    }
-
-    function loadShopList() {
-      fetch(shopListURL)
-        .then(res => res.json())
-        .then(data => {
-          const div = document.getElementById("shop-select-box");
-          const select = document.createElement("select");
-          select.id = "shop-selector";
-          select.innerHTML = '<option value="">-- 請選擇分店 --</option>';
-          data.forEach(row => {
-            if (row["分店"]) {
-              select.innerHTML += `<option value="${row["分店"]}">${row["分店"]}</option>`;
-            }
-          });
-          select.onchange = () => {
-            if (select.value) {
-              shopName = select.value;
-              document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
-              document.getElementById("qr-reader").classList.remove("hidden");
-              startScanner();
-            }
-          };
-          div.innerHTML = "";
-          div.appendChild(select);
-        });
-    }
-
-    function startScanner() {
       html5QrCode = new Html5Qrcode("qr-reader");
       html5QrCode.start(
         { facingMode: "environment" },
@@ -155,6 +122,11 @@
         onScanSuccess,
         () => {}
       );
+
+      document.getElementById("instructions").innerHTML =
+        mode === "register"
+          ? "請先掃描【店家 QR】，再掃瓶號 QR。"
+          : "請直接掃描【瓶身 QR】以進行回收註銷。";
     }
 
     function onScanSuccess(decodedText) {
@@ -164,25 +136,48 @@
 
       const urlParams = new URLSearchParams(decodedText.split("?")[1]);
       const sn = urlParams.get("sn");
+      const shop = urlParams.get("shop");
 
-      if (!sn) {
-        document.getElementById("status").textContent = "⚠️ 無效 QR";
-        playBeep("error");
-        return;
-      }
-
-      if (!scannedSNs.includes(sn)) {
-        scannedSNs.push(sn);
-        updateUI();
-        playBeep();
-      } else {
-        document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
-        playBeep("error");
+      if (mode === "register") {
+        if (!shopName && shop) {
+          shopName = shop;
+          document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
+          document.getElementById("status").textContent = "請開始掃描瓶號 QR。";
+          playBeep();
+        } else if (sn && shopName) {
+          if (!scannedSNs.includes(sn)) {
+            scannedSNs.push(sn);
+            updateUI();
+            playBeep();
+          } else {
+            document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
+            playBeep("error");
+          }
+        } else {
+          document.getElementById("status").textContent = `⚠️ 請先掃描店家 QR`;
+          playBeep("error");
+        }
+      } else if (mode === "revoke") {
+        if (sn) {
+          if (!scannedSNs.includes(sn)) {
+            scannedSNs.push(sn);
+            updateUI();
+            playBeep();
+          } else {
+            document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
+            playBeep("error");
+          }
+        } else {
+          document.getElementById("status").textContent = `⚠️ 無效 QR`;
+          playBeep("error");
+        }
       }
     }
 
     function updateUI() {
-      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
+      document.getElementById("sn-list").innerHTML = scannedSNs
+        .map(sn => `<span class="tag">${sn}</span>`)
+        .join('');
     }
 
     function submitAll() {
@@ -202,11 +197,15 @@
       }).then(res => {
         if (res.ok) {
           playBeep("send");
-          shopName = "";
-          scannedSNs = [];
-          updateUI();
-          document.getElementById("shop-display").textContent = "";
-          document.getElementById("status").textContent = "✅ 資料送出成功，請重新選擇分店。";
+          if (mode === "register") {
+            shopName = "";
+            scannedSNs = [];
+            updateUI();
+            document.getElementById("shop-display").textContent = "";
+            document.getElementById("status").textContent = "✅ 資料送出成功，請重新掃描店家 QR。";
+          } else {
+            location.reload();
+          }
         } else {
           document.getElementById("status").textContent = "❌ 資料送出失敗";
           playBeep("error");
