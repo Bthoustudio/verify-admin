@@ -164,9 +164,21 @@
     }
 
     function submitAll() {
-      if (scannedSNs.length === 0) return;
-      if (mode === "register" && !shopName) {
-        document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
+      if (mode === "register") {
+        if (!shopName) {
+          document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
+          playBeep("error");
+          return;
+        }
+        if (scannedSNs.length === 0) {
+          document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
+          playBeep("error");
+          return;
+        }
+      }
+
+      if (mode === "revoke" && scannedSNs.length === 0) {
+        document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
         playBeep("error");
         return;
       }
