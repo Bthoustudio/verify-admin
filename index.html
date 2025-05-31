@@ -38,6 +38,11 @@
       width: 80%;
       max-width: 360px;
     }
+    #shop-hint {
+      font-size: 16px;
+      margin-top: 10px;
+      color: #555;
+    }
   </style>
 </head>
 <body>
@@ -49,6 +54,7 @@
   </div>
 
   <div id="shop-select" class="hidden">
+    <div id="shop-hint">請選擇出貨店家以啟動掃碼</div>
     <select id="shop-dropdown">
       <option value="">請選擇出貨店家</option>
     </select>
@@ -159,12 +165,19 @@
 
     function submitAll() {
       if (scannedSNs.length === 0) return;
+      if (mode === "register" && !shopName) {
+        document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
+        playBeep("error");
+        return;
+      }
+
       const payload = {
         mode: mode,
         shop: shopName,
         sn_list: scannedSNs,
         operator: "倉管"
       };
+
       fetch(webhookURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,7 +188,7 @@
           if (mode === "register") {
             scannedSNs = [];
             updateUI();
-            document.getElementById("status").textContent = "✅ 資料送出成功，請重新掃描瓶號。";
+            document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
           } else {
             location.reload();
           }
