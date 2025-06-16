@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>水宅倉庫掃碼系統｜釘釘簡化版</title>
+  <title>水宅倉庫掃碼系統｜釘釘偵測版</title>
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.0.0/dingtalk.open.js"></script>
   <style>
     body {
@@ -33,10 +33,18 @@
       border-radius: 8px;
       cursor: pointer;
     }
+    #warning {
+      color: red;
+      font-weight: bold;
+      margin-top: 20px;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <h2>📦 水宅倉庫掃碼系統</h2>
+
+  <div id="warning">⚠️ 無法啟動 DingTalk JSAPI，請確認此頁是否由釘釘工作台開啟</div>
 
   <div>
     <button class="mode-btn" onclick="setMode('register')">出貨模式</button>
@@ -63,6 +71,7 @@
     const scanLog = document.getElementById('scan-log');
     const submitBtn = document.getElementById('submit-btn');
     const scanBtn = document.getElementById('scan-btn');
+    const warning = document.getElementById('warning');
 
     function setMode(selectedMode) {
       mode = selectedMode;
@@ -76,6 +85,13 @@
         storeBlock.style.display = 'none';
       }
     }
+
+    // 檢查 JSAPI 是否可用
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!window.dd || !dd.biz || !dd.biz.util) {
+        warning.style.display = 'block';
+      }
+    });
 
     // 取得店家清單
     fetch('https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec')
@@ -91,12 +107,13 @@
         });
       });
 
-    // DingTalk 掃碼（無 dd.config）簡化模式
-    function scanQRCode() {
+    // 掃碼功能（簡化）
+    scanBtn.addEventListener('click', () => {
       if (!dd || !dd.biz || !dd.biz.util) {
-        alert("DingTalk JSAPI 尚未就緒，請稍後重試");
+        alert('❌ DingTalk JSAPI 尚未啟動，請確認從釘釘工作台進入');
         return;
       }
+
       dd.biz.util.scan({
         type: 'qrCode',
         onSuccess: function (data) {
@@ -114,10 +131,9 @@
           scanLog.innerHTML += `❌ 掃碼錯誤：${JSON.stringify(err)}<br>`;
         }
       });
-    }
+    });
 
-    scanBtn.addEventListener('click', scanQRCode);
-
+    // 送出掃描資料
     submitBtn.onclick = function () {
       const store = mode === 'register' ? storeSelect.value : '';
       fetch('https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h', {
