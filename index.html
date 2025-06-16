@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>倉庫掃碼系統</title>
   <meta name="robots" content="noindex, nofollow" />
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
@@ -28,7 +28,7 @@
       cursor: pointer;
     }
     .hidden { display: none; }
-    #qr-reader { margin: 0 auto; width: 100%; max-width: 400px; }
+    video { margin: 0 auto; width: 100%; max-width: 400px; border-radius: 10px; border: 2px solid #ccc; }
     .tag { display: inline-block; margin: 6px; padding: 6px 12px; background: #ddd; border-radius: 6px; }
     #status { font-size: 18px; margin-top: 10px; color: #d00; }
     select {
@@ -61,7 +61,7 @@
   </div>
 
   <div id="instructions"></div>
-  <div id="qr-reader" class="hidden"></div>
+  <video id="preview" class="hidden"></video>
   <div id="status"></div>
 
   <div id="result-box" class="hidden">
@@ -79,9 +79,8 @@
     let mode = null;
     let shopName = "";
     let scannedSNs = [];
-    let html5QrCode;
-    let lastScanTime = 0;
-    const scanCooldown = 1000;
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const videoElement = document.getElementById("preview");
 
     fetch(shopDataURL)
       .then(res => res.json())
@@ -96,19 +95,6 @@
           }
         });
       });
-
-    function playBeep(type = "success") {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(type === "error" ? 200 : type === "send" ? 900 : 600, ctx.currentTime);
-      oscillator.type = "square";
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.1);
-    }
 
     function setMode(selectedMode) {
       mode = selectedMode;
@@ -125,38 +111,33 @@
       if (value) {
         shopName = value;
         document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
-        document.getElementById("instructions").innerText = "請開始掃描瓶號 QR。";
+        document.getElementById("instructions").innerText = "請將瓶身 QR 對準鏡頭中央，稍停留 1~2 秒";
         startScanner();
       }
     });
 
     function startScanner() {
-      document.getElementById("qr-reader").classList.remove("hidden");
+      document.getElementById("preview").classList.remove("hidden");
       document.getElementById("result-box").classList.remove("hidden");
-      html5QrCode = new Html5Qrcode("qr-reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess);
-    }
-
-    function onScanSuccess(decodedText) {
-      const now = Date.now();
-      if (now - lastScanTime < scanCooldown) return;
-      lastScanTime = now;
-
-      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-      const sn = urlParams.get("sn");
-      if (sn) {
-        if (!scannedSNs.includes(sn)) {
-          scannedSNs.push(sn);
-          updateUI();
-          playBeep();
-        } else {
-          document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
-          playBeep("error");
+      codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
+        if (result) {
+          let decodedText = result.getText();
+          let sn = null;
+          if (decodedText.includes("?")) {
+            const urlParams = new URLSearchParams(decodedText.split("?")[1]);
+            sn = urlParams.get("sn");
+          } else {
+            sn = decodedText;
+          }
+          if (sn && !scannedSNs.includes(sn)) {
+            scannedSNs.push(sn);
+            updateUI();
+            document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
+          } else {
+            document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
+          }
         }
-      } else {
-        document.getElementById("status").textContent = `⚠️ 無效 QR`;
-        playBeep("error");
-      }
+      });
     }
 
     function updateUI() {
@@ -167,46 +148,32 @@
       if (mode === "register") {
         if (!shopName) {
           document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
-          playBeep("error");
           return;
         }
         if (scannedSNs.length === 0) {
           document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
-          playBeep("error");
           return;
         }
       }
-
       if (mode === "revoke" && scannedSNs.length === 0) {
         document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
-        playBeep("error");
         return;
       }
-
       const payload = {
         mode: mode,
         shop: shopName,
         sn_list: scannedSNs,
         operator: "倉管"
       };
-
       fetch(webhookURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       }).then(res => {
         if (res.ok) {
-          playBeep("send");
-          if (mode === "register") {
-            scannedSNs = [];
-            updateUI();
-            document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
-          } else {
-            location.reload();
-          }
+          document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
         } else {
           document.getElementById("status").textContent = "❌ 資料送出失敗";
-          playBeep("error");
         }
       });
     }
