@@ -1,130 +1,181 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>水宅倉庫掃碼系統（釘釘專用）</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta name="robots" content="noindex, nofollow" />
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+      text-align: center;
+    }
+    h2 { color: #0c7c59; }
+    select, button {
+      margin: 10px;
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+    }
+    select { width: 80%; max-width: 360px; }
+    button { background-color: #0c7c59; color: white; cursor: pointer; }
+    .tag {
+      display: inline-block;
+      background: #eee;
+      padding: 6px 10px;
+      margin: 4px;
+      border-radius: 6px;
+    }
+    .hidden { display: none; }
+    #qr-reader { margin: 10px auto; max-width: 400px; }
+    #log { font-size: 16px; text-align: left; margin-top: 16px; }
+  </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-xl mx-auto bg-white p-6 rounded-xl shadow">
-    <h1 class="text-xl font-bold mb-4">📦 水宅倉庫掃碼系統</h1>
+<body>
 
-    <div class="mb-4">
-      <label class="block font-medium mb-1">選擇模式</label>
-      <select id="mode" class="w-full border rounded p-2">
-        <option value="">請選擇</option>
-        <option value="register">📤 出貨模式</option>
-        <option value="revoke">♻️ 回收模式</option>
-      </select>
-    </div>
+  <h2>📦 水宅倉庫掃碼系統</h2>
 
-    <div id="storeWrap" class="mb-4 hidden">
-      <label class="block font-medium mb-1">選擇分店</label>
-      <select id="store" class="w-full border rounded p-2"></select>
-    </div>
-
-    <div class="mb-4">
-      <button id="scanBtn" class="bg-blue-600 text-white px-4 py-2 w-full rounded">📷 掃描 QR Code</button>
-    </div>
-
-    <div id="reader" class="mb-4 hidden"></div>
-
-    <ul id="logList" class="text-sm space-y-1"></ul>
+  <div>
+    <label>選擇模式</label><br>
+    <select id="mode-select">
+      <option value="register">📤 出貨模式</option>
+      <option value="revoke">🔁 回收模式</option>
+    </select>
   </div>
 
+  <div>
+    <label>選擇分店</label><br>
+    <select id="shop-select">
+      <option value="">請選擇</option>
+    </select>
+  </div>
+
+  <button id="scan-btn">📷 掃描 QR Code</button>
+
+  <div id="qr-reader" class="hidden"></div>
+
+  <div id="sn-display"></div>
+
+  <button id="submit-btn" class="hidden">📤 送出資料</button>
+
+  <div id="log"></div>
+
   <script>
-    const modeEl = document.getElementById("mode");
-    const storeWrap = document.getElementById("storeWrap");
-    const storeEl = document.getElementById("store");
-    const scanBtn = document.getElementById("scanBtn");
-    const readerEl = document.getElementById("reader");
-    const logList = document.getElementById("logList");
+    const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
+    const shopDataURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
 
-    let html5QrCode;
+    let mode = "register";
+    let shop = "";
+    let scanned = [];
+    let lastScan = 0;
 
-    modeEl.addEventListener("change", () => {
-      const mode = modeEl.value;
-      storeWrap.style.display = (mode === "register") ? "block" : "none";
-      log("切換模式：" + (mode === "register" ? "📤 出貨模式" : "♻️ 回收模式"));
+    document.getElementById("mode-select").addEventListener("change", e => {
+      mode = e.target.value;
+      document.getElementById("log").innerHTML += `切換模式：${mode}<br>`;
     });
 
-    scanBtn.addEventListener("click", () => {
-      if (typeof window.dd !== "undefined") {
-        window.dd.ready(() => {
-          window.dd.biz.util.scan({
-            type: "qrCode",
-            onSuccess: function (res) {
-              log("✅ 掃描成功：" + res.text);
-              // 可在這裡進行送出 res.text 的 API 呼叫
-            },
-            onFail: function (err) {
-              log("❌ 掃描失敗：" + JSON.stringify(err));
-            }
-          });
+    fetch(shopDataURL)
+      .then(r => r.json())
+      .then(data => {
+        const select = document.getElementById("shop-select");
+        data.forEach(d => {
+          if (d.分店) {
+            const o = document.createElement("option");
+            o.value = d.分店;
+            o.textContent = d.分店;
+            select.appendChild(o);
+          }
         });
-      } else {
-        log("⚠️ 無 JSAPI，改用 HTML5 QR 掃碼");
-        readerEl.classList.remove("hidden");
-        if (!html5QrCode) {
-          html5QrCode = new Html5Qrcode("reader");
-        }
-        html5QrCode.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: 250
-          },
-          (decodedText) => {
-            log("✅ 掃碼成功：" + decodedText);
-            html5QrCode.stop();
-          },
-          (err) => {}
-        );
-      }
+      });
+
+    document.getElementById("shop-select").addEventListener("change", e => {
+      shop = e.target.value;
+      document.getElementById("log").innerHTML += `選擇分店：${shop}<br>`;
     });
 
-    function log(msg) {
-      const li = document.createElement("li");
-      li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      logList.prepend(li);
+    document.getElementById("scan-btn").addEventListener("click", () => {
+      if (mode === "register" && !shop) {
+        alert("請先選擇出貨店家");
+        return;
+      }
+
+      if (!window.dd) {
+        alert("請從釘釘應用圖示進入系統，否則無法啟用掃碼功能。");
+        return;
+      }
+
+      dd.ready(() => {
+        dd.biz.util.scan({
+          type: "qr",
+          onSuccess: res => {
+            const url = res.text || "";
+            const sn = new URLSearchParams(url.split("?")[1]).get("sn");
+            if (sn && !scanned.includes(sn)) {
+              scanned.push(sn);
+              updateDisplay();
+              document.getElementById("submit-btn").classList.remove("hidden");
+              log(`✅ 掃描成功：${sn}`);
+            } else {
+              log("⚠️ 無效或重複瓶號");
+            }
+          },
+          onFail: err => {
+            log("❌ 掃描失敗：" + JSON.stringify(err));
+          }
+        });
+      });
+    });
+
+    document.getElementById("submit-btn").addEventListener("click", () => {
+      if (mode === "register" && !shop) {
+        alert("請選擇出貨店家");
+        return;
+      }
+      if (scanned.length === 0) {
+        alert("請至少掃描一組瓶號");
+        return;
+      }
+
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: mode,
+          shop: shop,
+          sn_list: scanned,
+          operator: "倉管"
+        })
+      }).then(r => {
+        if (r.ok) {
+          log("✅ 資料送出成功");
+          scanned = [];
+          updateDisplay();
+        } else {
+          log("❌ 資料送出失敗");
+        }
+      });
+    });
+
+    function updateDisplay() {
+      document.getElementById("sn-display").innerHTML =
+        scanned.map(sn => `<span class="tag">${sn}</span>`).join("");
     }
 
-    fetch("https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec")
-      .then(res => res.json())
-      .then(data => {
-        data.forEach(item => {
-          const opt = document.createElement("option");
-          opt.value = item.store;
-          opt.textContent = item.store;
-          storeEl.appendChild(opt);
-        });
-        log("✅ 成功載入分店清單");
-      })
-      .catch(() => log("❌ 載入分店清單失敗"));
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      document.getElementById("log").innerHTML += `[${ts}] ${msg}<br>`;
+    }
 
-    // JSAPI 偵錯提示
-    window.addEventListener("load", () => {
-      setTimeout(() => {
-        if (typeof window.dd === "undefined") {
-          const warn = document.createElement("div");
-          warn.textContent = "❌ JSAPI 尚未注入，請從釘釘應用圖示進入";
-          warn.style.position = "fixed";
-          warn.style.top = "20px";
-          warn.style.left = "50%";
-          warn.style.transform = "translateX(-50%)";
-          warn.style.backgroundColor = "#e53e3e";
-          warn.style.color = "white";
-          warn.style.padding = "12px 24px";
-          warn.style.borderRadius = "8px";
-          warn.style.zIndex = "9999";
-          warn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
-          document.body.appendChild(warn);
-        }
-      }, 800);
-    });
+    if (!window.dd) {
+      log("❌ JSAPI 尚未注入，請從釘釘應用圖示進入");
+    } else {
+      log("✅ 已偵測到 JSAPI 可使用");
+    }
   </script>
 </body>
 </html>
