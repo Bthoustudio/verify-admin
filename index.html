@@ -80,15 +80,16 @@
     fetch('https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec')
       .then(res => res.json())
       .then(data => {
-        data.forEach(store => {
-          const option = document.createElement('option');
-          option.value = store;
-          option.textContent = store;
-          storeSelect.appendChild(option);
+        data.forEach(row => {
+          if (row.分店) {
+            const option = document.createElement('option');
+            option.value = row.分店;
+            option.textContent = row.分店;
+            storeSelect.appendChild(option);
+          }
         });
       });
 
-    // 掃碼按鈕
     dd.ready(function () {
       document.getElementById('scan-btn').onclick = function () {
         dd.biz.util.scan({
@@ -109,6 +110,10 @@
           }
         });
       };
+    });
+
+    dd.error(function(err) {
+      alert('❌ DingTalk 初始化失敗：' + JSON.stringify(err));
     });
 
     submitBtn.onclick = function () {
