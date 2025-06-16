@@ -61,7 +61,7 @@
   </div>
 
   <div id="instructions"></div>
-  <video id="preview" class="hidden"></video>
+  <video id="preview" class="hidden" playsinline autoplay muted></video>
   <div id="status"></div>
 
   <div id="result-box" class="hidden">
@@ -102,6 +102,7 @@
       if (mode === "register") {
         document.getElementById("shop-select").classList.remove("hidden");
       } else {
+        document.getElementById("shop-display").textContent = `🔁 回收模式`;
         startScanner();
       }
     }
@@ -119,25 +120,31 @@
     function startScanner() {
       document.getElementById("preview").classList.remove("hidden");
       document.getElementById("result-box").classList.remove("hidden");
-      codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
-        if (result) {
-          let decodedText = result.getText();
-          let sn = null;
-          if (decodedText.includes("?")) {
-            const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-            sn = urlParams.get("sn");
-          } else {
-            sn = decodedText;
-          }
-          if (sn && !scannedSNs.includes(sn)) {
-            scannedSNs.push(sn);
-            updateUI();
-            document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
-          } else {
-            document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
+      codeReader.decodeFromConstraints(
+        { video: { facingMode: "environment" } },
+        videoElement,
+        (result, err) => {
+          if (result) {
+            let decodedText = result.getText();
+            let sn = null;
+            if (decodedText.includes("?")) {
+              const urlParams = new URLSearchParams(decodedText.split("?")[1]);
+              sn = urlParams.get("sn");
+            } else {
+              sn = decodedText;
+            }
+            if (sn && !scannedSNs.includes(sn)) {
+              scannedSNs.push(sn);
+              updateUI();
+              document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
+            } else {
+              document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
+            }
+          } else if (err && !(err instanceof ZXing.NotFoundException)) {
+            document.getElementById("status").textContent = `❌ 鏡頭初始化失敗：${err}`;
           }
         }
-      });
+      );
     }
 
     function updateUI() {
