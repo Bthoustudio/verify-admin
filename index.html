@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>水宅倉庫掃碼系統｜釘釘小程序版</title>
+  <title>水宅倉庫掃碼系統｜釘釘簡化版</title>
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.0.0/dingtalk.open.js"></script>
   <style>
     body {
@@ -62,6 +62,7 @@
     const storeBlock = document.getElementById('store-select');
     const scanLog = document.getElementById('scan-log');
     const submitBtn = document.getElementById('submit-btn');
+    const scanBtn = document.getElementById('scan-btn');
 
     function setMode(selectedMode) {
       mode = selectedMode;
@@ -90,31 +91,32 @@
         });
       });
 
-    dd.ready(function () {
-      document.getElementById('scan-btn').onclick = function () {
-        dd.biz.util.scan({
-          type: 'qrCode',
-          onSuccess: function (data) {
-            const text = data.text;
-            const sn = text.includes('?') ? new URLSearchParams(text.split('?')[1]).get('sn') : text;
-            if (sn) {
-              snList.push(sn);
-              scanLog.innerHTML += `✅ ${sn}<br>`;
-              submitBtn.style.display = 'inline-block';
-            } else {
-              scanLog.innerHTML += `⚠️ 無效 QR：${text}<br>`;
-            }
-          },
-          onFail: function (err) {
-            scanLog.innerHTML += `❌ 掃碼錯誤：${JSON.stringify(err)}<br>`;
+    // DingTalk 掃碼（無 dd.config）簡化模式
+    function scanQRCode() {
+      if (!dd || !dd.biz || !dd.biz.util) {
+        alert("DingTalk JSAPI 尚未就緒，請稍後重試");
+        return;
+      }
+      dd.biz.util.scan({
+        type: 'qrCode',
+        onSuccess: function (data) {
+          const text = data.text;
+          const sn = text.includes('?') ? new URLSearchParams(text.split('?')[1]).get('sn') : text;
+          if (sn) {
+            snList.push(sn);
+            scanLog.innerHTML += `✅ ${sn}<br>`;
+            submitBtn.style.display = 'inline-block';
+          } else {
+            scanLog.innerHTML += `⚠️ 無效 QR：${text}<br>`;
           }
-        });
-      };
-    });
+        },
+        onFail: function (err) {
+          scanLog.innerHTML += `❌ 掃碼錯誤：${JSON.stringify(err)}<br>`;
+        }
+      });
+    }
 
-    dd.error(function(err) {
-      alert('❌ DingTalk 初始化失敗：' + JSON.stringify(err));
-    });
+    scanBtn.addEventListener('click', scanQRCode);
 
     submitBtn.onclick = function () {
       const store = mode === 'register' ? storeSelect.value : '';
