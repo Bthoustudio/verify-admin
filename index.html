@@ -1,10 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼系統</title>
+  <title>倉庫掃碼系統（釘釘專用）</title>
   <meta name="robots" content="noindex, nofollow" />
+  <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
@@ -116,7 +118,7 @@
       if (mode === "register") {
         document.getElementById("shop-select").classList.remove("hidden");
       } else {
-        startScanner();
+        startScan();
       }
     }
 
@@ -126,35 +128,50 @@
         shopName = value;
         document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
         document.getElementById("instructions").innerText = "請開始掃描瓶號 QR。";
-        startScanner();
+        startScan();
       }
     });
 
-    function startScanner() {
+    function startScan() {
       document.getElementById("qr-reader").classList.remove("hidden");
       document.getElementById("result-box").classList.remove("hidden");
-      html5QrCode = new Html5Qrcode("qr-reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess);
+
+      if (window.dd) {
+        dd.ready(() => {
+          document.getElementById("instructions").innerText = "請使用釘釘掃描器掃描 QR Code。";
+          dd.biz.util.scan({
+            type: 1,
+            bizType: "scan",
+            onSuccess: res => {
+              const sn = new URLSearchParams(res.text.split("?")[1]).get("sn");
+              handleScanResult(sn);
+            },
+            onFail: err => {
+              document.getElementById("status").textContent = "❌ 掃描失敗：" + JSON.stringify(err);
+              playBeep("error");
+            }
+          });
+        });
+      } else {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, decodedText => {
+          const sn = new URLSearchParams(decodedText.split("?")[1]).get("sn");
+          handleScanResult(sn);
+        });
+      }
     }
 
-    function onScanSuccess(decodedText) {
+    function handleScanResult(sn) {
       const now = Date.now();
-      if (now - lastScanTime < scanCooldown) return;
+      if (!sn || now - lastScanTime < scanCooldown) return;
       lastScanTime = now;
 
-      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-      const sn = urlParams.get("sn");
-      if (sn) {
-        if (!scannedSNs.includes(sn)) {
-          scannedSNs.push(sn);
-          updateUI();
-          playBeep();
-        } else {
-          document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
-          playBeep("error");
-        }
+      if (!scannedSNs.includes(sn)) {
+        scannedSNs.push(sn);
+        updateUI();
+        playBeep();
       } else {
-        document.getElementById("status").textContent = `⚠️ 無效 QR`;
+        document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
         playBeep("error");
       }
     }
@@ -164,21 +181,13 @@
     }
 
     function submitAll() {
-      if (mode === "register") {
-        if (!shopName) {
-          document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
-          playBeep("error");
-          return;
-        }
-        if (scannedSNs.length === 0) {
-          document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
-          playBeep("error");
-          return;
-        }
+      if (mode === "register" && !shopName) {
+        document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
+        playBeep("error");
+        return;
       }
-
-      if (mode === "revoke" && scannedSNs.length === 0) {
-        document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
+      if (scannedSNs.length === 0) {
+        document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
         playBeep("error");
         return;
       }
@@ -197,13 +206,9 @@
       }).then(res => {
         if (res.ok) {
           playBeep("send");
-          if (mode === "register") {
-            scannedSNs = [];
-            updateUI();
-            document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
-          } else {
-            location.reload();
-          }
+          scannedSNs = [];
+          updateUI();
+          document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
         } else {
           document.getElementById("status").textContent = "❌ 資料送出失敗";
           playBeep("error");
