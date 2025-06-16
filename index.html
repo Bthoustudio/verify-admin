@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼系統（高容錯強化版）</title>
+  <title>倉庫掃碼系統（修復版）</title>
   <meta name="robots" content="noindex, nofollow" />
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
   <style>
@@ -47,7 +47,7 @@
 </head>
 <body>
 
-  <h2>📦 倉庫掃碼系統（高容錯強化版）</h2>
+  <h2>📦 倉庫掃碼系統（修復版）</h2>
   <div id="mode-selection">
     <button onclick="setMode('register')">📦 出貨模式</button>
     <button onclick="setMode('revoke')">🔁 回收模式</button>
@@ -73,16 +73,104 @@
   </div>
 
   <script>
+    const shopDataURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
+    const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
+
+    let mode = null;
+    let shopName = "";
+    let scannedSNs = [];
+    let codeReader;
+    const videoElement = document.getElementById("preview");
+
+    function setMode(selectedMode) {
+      mode = selectedMode;
+      document.getElementById("mode-selection").style.display = "none";
+      if (mode === "register") {
+        document.getElementById("shop-select").classList.remove("hidden");
+      } else {
+        document.getElementById("shop-display").textContent = `🔁 回收模式`;
+        startScanner();
+      }
+    }
+
+    function submitAll() {
+      if (mode === "register") {
+        if (!shopName) {
+          document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
+          return;
+        }
+        if (scannedSNs.length === 0) {
+          document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
+          return;
+        }
+      }
+      if (mode === "revoke" && scannedSNs.length === 0) {
+        document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
+        return;
+      }
+      const payload = {
+        mode: mode,
+        shop: shopName,
+        sn_list: scannedSNs,
+        operator: "倉管"
+      };
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(res => {
+        if (res.ok) {
+          document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
+        } else {
+          document.getElementById("status").textContent = "❌ 資料送出失敗";
+        }
+      }).catch(err => {
+        document.getElementById("status").textContent = `❌ 發送錯誤：${err}`;
+      });
+    }
+
+    function updateUI() {
+      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
+    }
+
+    function startScanner() {
+      document.getElementById("preview").classList.remove("hidden");
+      document.getElementById("result-box").classList.remove("hidden");
+      document.getElementById("status").textContent = "正在啟動鏡頭...請確認允許相機權限";
+
+      codeReader.decodeFromConstraints(
+        { video: { facingMode: "environment" } },
+        videoElement,
+        (result, err) => {
+          if (result) {
+            let decodedText = result.getText();
+            let sn = null;
+            if (decodedText.includes("?")) {
+              const urlParams = new URLSearchParams(decodedText.split("?")[1]);
+              sn = urlParams.get("sn");
+            } else {
+              sn = decodedText;
+            }
+            if (sn && !scannedSNs.includes(sn)) {
+              scannedSNs.push(sn);
+              updateUI();
+              document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
+            } else {
+              document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
+            }
+          } else if (err && !(err instanceof ZXing.NotFoundException)) {
+            console.error("掃描錯誤：", err);
+            document.getElementById("status").textContent = `❌ 鏡頭啟動失敗：\n${err}`;
+          }
+        }
+      ).catch(err => {
+        console.error("鏡頭啟動錯誤：", err);
+        document.getElementById("status").textContent = `❌ 無法啟用鏡頭：\n${err}\n請使用 Safari / Chrome 並確認權限設定。`;
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-      const shopDataURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
-      const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
-
-      let mode = null;
-      let shopName = "";
-      let scannedSNs = [];
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      const videoElement = document.getElementById("preview");
-
+      codeReader = new ZXing.BrowserMultiFormatReader();
       fetch(shopDataURL)
         .then(res => res.json())
         .then(data => {
@@ -100,17 +188,6 @@
           document.getElementById("status").textContent = `❌ 店家資料讀取失敗：\n${err}`;
         });
 
-      window.setMode = function(selectedMode) {
-        mode = selectedMode;
-        document.getElementById("mode-selection").style.display = "none";
-        if (mode === "register") {
-          document.getElementById("shop-select").classList.remove("hidden");
-        } else {
-          document.getElementById("shop-display").textContent = `🔁 回收模式`;
-          startScanner();
-        }
-      };
-
       document.getElementById("shop-dropdown").addEventListener("change", function () {
         const value = this.value;
         if (value) {
@@ -120,82 +197,6 @@
           startScanner();
         }
       });
-
-      function startScanner() {
-        document.getElementById("preview").classList.remove("hidden");
-        document.getElementById("result-box").classList.remove("hidden");
-        document.getElementById("status").textContent = "正在啟動鏡頭...請確認允許相機權限";
-
-        codeReader.decodeFromConstraints(
-          { video: { facingMode: "environment" } },
-          videoElement,
-          (result, err) => {
-            if (result) {
-              let decodedText = result.getText();
-              let sn = null;
-              if (decodedText.includes("?")) {
-                const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-                sn = urlParams.get("sn");
-              } else {
-                sn = decodedText;
-              }
-              if (sn && !scannedSNs.includes(sn)) {
-                scannedSNs.push(sn);
-                updateUI();
-                document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
-              } else {
-                document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
-              }
-            } else if (err && !(err instanceof ZXing.NotFoundException)) {
-              console.error("掃描錯誤：", err);
-              document.getElementById("status").textContent = `❌ 鏡頭啟動失敗：\n${err}`;
-            }
-          }
-        ).catch(err => {
-          console.error("鏡頭啟動錯誤：", err);
-          document.getElementById("status").textContent = `❌ 無法啟用鏡頭：\n${err}\n請使用 Safari / Chrome 並確認權限設定。`;
-        });
-      }
-
-      function updateUI() {
-        document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
-      }
-
-      window.submitAll = function () {
-        if (mode === "register") {
-          if (!shopName) {
-            document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
-            return;
-          }
-          if (scannedSNs.length === 0) {
-            document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
-            return;
-          }
-        }
-        if (mode === "revoke" && scannedSNs.length === 0) {
-          document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
-          return;
-        }
-        const payload = {
-          mode: mode,
-          shop: shopName,
-          sn_list: scannedSNs,
-          operator: "倉管"
-        };
-        fetch(webhookURL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }).then(res => {
-          if (res.ok) {
-            document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
-          } else {
-            document.getElementById("status").textContent = "❌ 資料送出失敗";
-          }
-        }).catch(err => {
-          document.getElementById("status").textContent = `❌ 發送錯誤：${err}`;
-        });
-      }
     });
   </script>
 </body>
