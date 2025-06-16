@@ -1,215 +1,156 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼系統</title>
-  <meta name="robots" content="noindex, nofollow" />
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>倉管掃碼系統｜強化掃描版</title>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
   <style>
-    body {
-      font-family: "Segoe UI", sans-serif;
-      padding: 20px;
-      background-color: #f9f9f9;
-      text-align: center;
-    }
-    h2 { color: #0c7c59; margin-bottom: 24px; }
-    button {
-      display: block;
-      width: 90%;
-      max-width: 360px;
-      margin: 20px auto;
-      padding: 20px;
-      font-size: 22px;
-      border: none;
-      border-radius: 10px;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-    }
-    .hidden { display: none; }
-    #qr-reader { margin: 0 auto; width: 100%; max-width: 400px; }
-    .tag { display: inline-block; margin: 6px; padding: 6px 12px; background: #ddd; border-radius: 6px; }
-    #status { font-size: 18px; margin-top: 10px; color: #d00; }
-    select {
-      font-size: 18px;
-      padding: 10px;
-      margin-top: 10px;
-      width: 80%;
-      max-width: 360px;
-    }
-    #shop-hint {
-      font-size: 16px;
-      margin-top: 10px;
-      color: #555;
-    }
+    body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 20px; text-align: center; }
+    h2 { color: #05668d; }
+    select, button { font-size: 18px; padding: 10px; margin: 10px auto; display: block; width: 90%; max-width: 400px; border-radius: 8px; }
+    button { background: #05668d; color: #fff; border: none; cursor: pointer; }
+    #video-container { margin-top: 20px; }
+    video { width: 100%; max-width: 400px; border: 2px solid #ccc; border-radius: 8px; }
+    .tag { background: #ddd; padding: 6px 10px; margin: 5px; display: inline-block; border-radius: 5px; }
+    #status { color: #c00; font-size: 16px; margin-top: 10px; white-space: pre-line; }
   </style>
 </head>
 <body>
+  <h2>📦 倉庫掃碼系統（曲面強化版）</h2>
 
-  <h2>📦 倉庫掃碼系統</h2>
-  <div id="mode-selection">
-    <button onclick="setMode('register')">📦 出貨模式</button>
-    <button onclick="setMode('revoke')">🔁 回收模式</button>
-  </div>
+  <button onclick="setMode('register')">📦 出貨模式</button>
+  <button onclick="setMode('revoke')">🔁 回收模式</button>
 
-  <div id="shop-select" class="hidden">
-    <div id="shop-hint">請選擇出貨店家以啟動掃碼</div>
+  <div id="shop-block" style="display:none">
     <select id="shop-dropdown">
       <option value="">請選擇出貨店家</option>
     </select>
   </div>
 
-  <div id="instructions"></div>
-  <div id="qr-reader" class="hidden"></div>
-  <div id="status"></div>
+  <div id="shop-name"></div>
 
-  <div id="result-box" class="hidden">
-    <p id="shop-display"></p>
-    <div>已掃描瓶號：</div>
-    <div id="sn-list"></div>
-    <button onclick="submitAll()">📤 送出資料</button>
-    <button onclick="location.reload()">🔙 回主頁</button>
+  <div id="video-container" style="display:none">
+    <video id="preview" autoplay muted playsinline></video>
   </div>
 
+  <div id="status"></div>
+  <div id="sn-list"></div>
+
+  <button onclick="submitData()" style="display:none" id="submit-btn">📤 送出資料</button>
+
   <script>
-    const shopDataURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
+    const dropdown = document.getElementById("shop-dropdown");
+    const shopNameDiv = document.getElementById("shop-name");
+    const snListDiv = document.getElementById("sn-list");
+    const video = document.getElementById("preview");
+    const status = document.getElementById("status");
+    const shopBlock = document.getElementById("shop-block");
+    const videoContainer = document.getElementById("video-container");
+    const submitBtn = document.getElementById("submit-btn");
+
+    const sheetURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
     const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
 
-    let mode = null;
     let shopName = "";
-    let scannedSNs = [];
-    let html5QrCode;
-    let lastScanTime = 0;
-    const scanCooldown = 1000;
+    let mode = "";
+    let scanned = [];
 
-    fetch(shopDataURL)
-      .then(res => res.json())
-      .then(data => {
-        const dropdown = document.getElementById("shop-dropdown");
-        data.forEach(row => {
-          if (row.分店) {
-            const option = document.createElement("option");
-            option.value = row.分店;
-            option.text = row.分店;
-            dropdown.appendChild(option);
-          }
-        });
-      });
+    const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    function playBeep(type = "success") {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(type === "error" ? 200 : type === "send" ? 900 : 600, ctx.currentTime);
-      oscillator.type = "square";
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.1);
-    }
-
-    function setMode(selectedMode) {
-      mode = selectedMode;
-      document.getElementById("mode-selection").style.display = "none";
-      if (mode === "register") {
-        document.getElementById("shop-select").classList.remove("hidden");
+    async function setMode(m) {
+      mode = m;
+      scanned = [];
+      document.querySelector("button[onclick*=register]").style.display = "none";
+      document.querySelector("button[onclick*=revoke]").style.display = "none";
+      if (mode === 'register') {
+        shopBlock.style.display = "block";
       } else {
-        startScanner();
+        shopName = "";
+        startScan();
       }
     }
 
-    document.getElementById("shop-dropdown").addEventListener("change", function () {
-      const value = this.value;
-      if (value) {
-        shopName = value;
-        document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
-        document.getElementById("instructions").innerText = "請開始掃描瓶號 QR。";
-        startScanner();
+    dropdown.addEventListener("change", () => {
+      if (dropdown.value) {
+        shopName = dropdown.value;
+        shopNameDiv.innerText = `✅ 出貨店家：${shopName}`;
+        startScan();
       }
     });
 
-    function startScanner() {
-      document.getElementById("qr-reader").classList.remove("hidden");
-      document.getElementById("result-box").classList.remove("hidden");
-      html5QrCode = new Html5Qrcode("qr-reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess);
-    }
+    async function startScan() {
+      shopBlock.style.display = "none";
+      videoContainer.style.display = "block";
+      submitBtn.style.display = "block";
+      status.innerText = "🔄 相機啟動中...";
 
-    function onScanSuccess(decodedText) {
-      const now = Date.now();
-      if (now - lastScanTime < scanCooldown) return;
-      lastScanTime = now;
-
-      const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-      const sn = urlParams.get("sn");
-      if (sn) {
-        if (!scannedSNs.includes(sn)) {
-          scannedSNs.push(sn);
-          updateUI();
-          playBeep();
-        } else {
-          document.getElementById("status").textContent = `⚠️ 此瓶號已掃描過`;
-          playBeep("error");
-        }
-      } else {
-        document.getElementById("status").textContent = `⚠️ 無效 QR`;
-        playBeep("error");
+      try {
+        await codeReader.decodeFromVideoDevice(null, video, (result, err) => {
+          if (result) {
+            const text = result.getText();
+            let sn = text.includes("?") ? new URLSearchParams(text.split("?")[1]).get("sn") : text;
+            if (sn && !scanned.includes(sn)) {
+              scanned.push(sn);
+              updateList();
+              status.innerText = `✅ 掃到瓶號：${sn}`;
+            } else {
+              status.innerText = `⚠️ 重複或無效 QR`;
+            }
+          }
+        });
+      } catch (e) {
+        status.innerText = `❌ 鏡頭啟用失敗：\n${e.message}`;
       }
     }
 
-    function updateUI() {
-      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
+    function updateList() {
+      snListDiv.innerHTML = scanned.map(sn => `<span class='tag'>${sn}</span>`).join('');
     }
 
-    function submitAll() {
-      if (mode === "register") {
-        if (!shopName) {
-          document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
-          playBeep("error");
-          return;
-        }
-        if (scannedSNs.length === 0) {
-          document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
-          playBeep("error");
-          return;
-        }
-      }
-
-      if (mode === "revoke" && scannedSNs.length === 0) {
-        document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
-        playBeep("error");
+    function submitData() {
+      if (mode === "register" && !shopName) {
+        status.innerText = "⚠️ 請先選擇店家";
         return;
       }
-
+      if (scanned.length === 0) {
+        status.innerText = "⚠️ 請至少掃描一組瓶號";
+        return;
+      }
       const payload = {
-        mode: mode,
+        mode,
         shop: shopName,
-        sn_list: scannedSNs,
+        sn_list: scanned,
         operator: "倉管"
       };
-
       fetch(webhookURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
-      }).then(res => {
-        if (res.ok) {
-          playBeep("send");
-          if (mode === "register") {
-            scannedSNs = [];
-            updateUI();
-            document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
-          } else {
-            location.reload();
-          }
+      }).then(r => {
+        if (r.ok) {
+          status.innerText = "✅ 資料已成功送出！";
         } else {
-          document.getElementById("status").textContent = "❌ 資料送出失敗";
-          playBeep("error");
+          status.innerText = "❌ 傳送失敗";
         }
+      }).catch(err => {
+        status.innerText = `❌ 錯誤：${err.message}`;
       });
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch(sheetURL).then(r => r.json()).then(data => {
+        data.forEach(row => {
+          if (row.分店) {
+            let op = document.createElement("option");
+            op.value = op.text = row.分店;
+            dropdown.appendChild(op);
+          }
+        });
+      }).catch(err => {
+        status.innerText = `❌ 店家清單載入錯誤：${err.message}`;
+      });
+    });
   </script>
 </body>
 </html>
