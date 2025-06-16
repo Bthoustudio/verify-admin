@@ -3,65 +3,134 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DingTalk 掃碼系統</title>
+  <title>水宅倉庫掃碼系統｜釘釘小程序版</title>
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.0.0/dingtalk.open.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; text-align: center; background: #f4f4f4; }
-    button { font-size: 18px; padding: 12px 20px; margin: 10px; border: none; background: #05668d; color: white; border-radius: 8px; cursor: pointer; }
-    #result { margin-top: 20px; font-size: 16px; color: #333; word-break: break-all; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f2f6fa;
+      text-align: center;
+    }
+    select, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 8px;
+    }
+    #result, #scan-log {
+      margin-top: 20px;
+      font-size: 16px;
+      word-break: break-word;
+    }
+    .mode-btn {
+      padding: 12px 18px;
+      font-size: 18px;
+      margin: 8px;
+      background-color: #05668d;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h2>📦 DingTalk 倉庫掃碼</h2>
+  <h2>📦 水宅倉庫掃碼系統</h2>
+
+  <div>
+    <button class="mode-btn" onclick="setMode('register')">出貨模式</button>
+    <button class="mode-btn" onclick="setMode('revoke')">回收模式</button>
+  </div>
+
+  <div id="store-select" style="display:none">
+    <label for="store">選擇店家：</label>
+    <select id="store"></select>
+  </div>
 
   <button id="scan-btn">📷 掃描 QR Code</button>
-  <div id="result">尚未掃描</div>
-  <button id="submit-btn" style="display:none">📤 傳送至後端</button>
+
+  <div id="scan-log"></div>
+  <button id="submit-btn" style="display:none">📤 傳送瓶號</button>
 
   <script>
-    let scannedSN = "";
-    const resultDiv = document.getElementById("result");
-    const submitBtn = document.getElementById("submit-btn");
+    let mode = '';
+    let snList = [];
+    let operator = 'DingTalk';
 
+    const storeSelect = document.getElementById('store');
+    const storeBlock = document.getElementById('store-select');
+    const scanLog = document.getElementById('scan-log');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function setMode(selectedMode) {
+      mode = selectedMode;
+      snList = [];
+      scanLog.innerHTML = '';
+      submitBtn.style.display = 'none';
+
+      if (mode === 'register') {
+        storeBlock.style.display = 'block';
+      } else {
+        storeBlock.style.display = 'none';
+      }
+    }
+
+    // 取得店家清單
+    fetch('https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(store => {
+          const option = document.createElement('option');
+          option.value = store;
+          option.textContent = store;
+          storeSelect.appendChild(option);
+        });
+      });
+
+    // 掃碼按鈕
     dd.ready(function () {
-      document.getElementById("scan-btn").onclick = function () {
+      document.getElementById('scan-btn').onclick = function () {
         dd.biz.util.scan({
-          type: "qrCode",
+          type: 'qrCode',
           onSuccess: function (data) {
             const text = data.text;
-            const sn = text.includes("?") ? new URLSearchParams(text.split("?")[1]).get("sn") : text;
+            const sn = text.includes('?') ? new URLSearchParams(text.split('?')[1]).get('sn') : text;
             if (sn) {
-              scannedSN = sn;
-              resultDiv.innerHTML = `✅ 掃到瓶號：<b>${sn}</b>`;
-              submitBtn.style.display = "inline-block";
+              snList.push(sn);
+              scanLog.innerHTML += `✅ ${sn}<br>`;
+              submitBtn.style.display = 'inline-block';
             } else {
-              resultDiv.textContent = "⚠️ 無法解析瓶號，請重新掃描。";
-              submitBtn.style.display = "none";
+              scanLog.innerHTML += `⚠️ 無效 QR：${text}<br>`;
             }
           },
           onFail: function (err) {
-            resultDiv.textContent = "❌ 掃碼失敗：" + JSON.stringify(err);
-            submitBtn.style.display = "none";
+            scanLog.innerHTML += `❌ 掃碼錯誤：${JSON.stringify(err)}<br>`;
           }
-        });
-      };
-
-      submitBtn.onclick = function () {
-        fetch("https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "dingtalk", sn_list: [scannedSN], operator: "DingTalk掃碼" })
-        }).then(r => {
-          if (r.ok) {
-            resultDiv.innerHTML += "<br>📤 傳送成功！";
-          } else {
-            resultDiv.innerHTML += "<br>❌ 傳送失敗";
-          }
-        }).catch(err => {
-          resultDiv.innerHTML += `<br>❌ 錯誤：${err.message}`;
         });
       };
     });
+
+    submitBtn.onclick = function () {
+      const store = mode === 'register' ? storeSelect.value : '';
+      fetch('https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, store, sn_list: snList, operator })
+      })
+      .then(res => {
+        if (res.ok) {
+          scanLog.innerHTML += '<br>📤 傳送成功';
+          snList = [];
+          submitBtn.style.display = 'none';
+        } else {
+          scanLog.innerHTML += '<br>❌ 傳送失敗';
+        }
+      })
+      .catch(err => {
+        scanLog.innerHTML += `<br>❌ 發送錯誤：${err.message}`;
+      });
+    }
   </script>
 </body>
 </html>
