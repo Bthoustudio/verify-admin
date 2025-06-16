@@ -1,190 +1,65 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>倉庫掃碼系統（釘釘偵錯支援）</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <title>釘釘 JSAPI 自我檢查工具</title>
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.6.34/dingtalk.open.js"></script>
   <style>
     body {
-      font-family: "Segoe UI", sans-serif;
-      padding: 20px;
-      background-color: #f9f9f9;
+      font-family: sans-serif;
+      padding: 30px;
+      background: #f8f8f8;
+      color: #333;
       text-align: center;
     }
-    h2 { color: #0c7c59; margin-bottom: 24px; }
-    button {
-      display: block;
-      width: 90%;
-      max-width: 360px;
-      margin: 20px auto;
-      padding: 20px;
-      font-size: 22px;
-      border: none;
-      border-radius: 10px;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-    }
-    .hidden { display: none; }
-    #qr-reader { margin: 0 auto; width: 100%; max-width: 400px; }
-    .tag { display: inline-block; margin: 6px; padding: 6px 12px; background: #ddd; border-radius: 6px; }
-    #status, #error-box {
-      font-size: 16px;
-      margin-top: 10px;
-      color: #d00;
-      white-space: pre-wrap;
-    }
-    select {
-      font-size: 18px;
-      padding: 10px;
-      margin-top: 10px;
-      width: 80%;
-      max-width: 360px;
-    }
+    .ok { color: green; }
+    .error { color: red; white-space: pre-wrap; }
+    h1 { font-size: 22px; margin-bottom: 10px; }
+    p { font-size: 16px; margin: 6px 0; }
+    code { background: #eee; padding: 3px 6px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <h2>📦 倉庫掃碼系統（釘釘偵錯支援）</h2>
-  <div id="mode-selection">
-    <button onclick="setMode('register')">📦 出貨模式</button>
-    <button onclick="setMode('revoke')">🔁 回收模式</button>
-  </div>
+  <h1>🔍 釘釘 JSAPI 自我檢查工具</h1>
+  <p>本頁將自動偵測：<br>✅ 是否在釘釘環境中<br>✅ 是否已載入 JSAPI<br>✅ 是否能正確啟用 JS 掃碼功能</p>
 
-  <div id="shop-select" class="hidden">
-    <select id="shop-dropdown">
-      <option value="">請選擇出貨店家</option>
-    </select>
-  </div>
-
-  <div id="instructions"></div>
-  <div id="qr-reader" class="hidden"></div>
-  <div id="status"></div>
-  <div id="error-box"></div>
-  <div id="result-box" class="hidden">
-    <p id="shop-display"></p>
-    <div>已掃描瓶號：</div>
-    <div id="sn-list"></div>
-    <button onclick="submitAll()">📤 送出資料</button>
-    <button onclick="location.reload()">🔙 回主頁</button>
-  </div>
+  <div id="result"></div>
 
   <script>
-    const isDingTalk = /dingtalk/i.test(navigator.userAgent);
-    const shopDataURL = "https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec";
-    const webhookURL = "https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h";
-    const jsapiSignURL = "https://script.google.com/macros/s/AKfycbw0kWuU5wWvxvoo4VQT0KVx_6wmqwHhG69v_h4AESzD3DE314VW-0WyWDkinMtvhoppiw/exec";
+    const output = document.getElementById("result");
 
-    let mode = null;
-    let shopName = "";
-    let scannedSNs = [];
-
-    fetch(shopDataURL)
-      .then(res => res.json())
-      .then(data => {
-        const dropdown = document.getElementById("shop-dropdown");
-        data.forEach(row => {
-          if (row.分店) {
-            const option = document.createElement("option");
-            option.value = row.分店;
-            option.text = row.分店;
-            dropdown.appendChild(option);
-          }
-        });
-      });
-
-    function setMode(selectedMode) {
-      mode = selectedMode;
-      document.getElementById("mode-selection").style.display = "none";
-      if (mode === "register") {
-        document.getElementById("shop-select").classList.remove("hidden");
-      } else {
-        startScanWithDingTalk();
-      }
+    function log(text, success = true) {
+      const p = document.createElement("p");
+      p.className = success ? "ok" : "error";
+      p.innerText = (success ? "✅ " : "❌ ") + text;
+      output.appendChild(p);
     }
 
-    document.getElementById("shop-dropdown").addEventListener("change", function () {
-      shopName = this.value;
-      if (shopName) {
-        document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
-        startScanWithDingTalk();
-      }
-    });
+    // 一、是否是釘釘環境
+    const ua = navigator.userAgent;
+    const isDing = /dingtalk/i.test(ua);
+    log("是否從釘釘開啟：" + (isDing ? "是" : "否"), isDing);
 
-    function startScanWithDingTalk() {
-      if (!isDingTalk) {
-        document.getElementById("error-box").innerText = "❌ 此版本僅限釘釘使用。";
+    // 二、是否注入 dd 物件
+    setTimeout(() => {
+      if (typeof dd === "undefined") {
+        log("無法偵測到 dd 物件（JSAPI 未注入）", false);
         return;
       }
-      const currentUrl = location.href.split('#')[0];
-      fetch(`${jsapiSignURL}?url=${encodeURIComponent(currentUrl)}`)
-        .then(res => res.json())
-        .then(config => {
-          dd.config({
-            agentId: config.agentId || '',
-            corpId: config.corpId,
-            timeStamp: config.timeStamp,
-            nonceStr: config.nonceStr,
-            signature: config.signature,
-            type: 0,
-            jsApiList: ['scan']
-          });
-          dd.ready(() => {
-            dd.biz.util.scan({
-              type: "qrCode",
-              onSuccess: function (res) {
-                const sn = parseSN(res.text);
-                if (sn && !scannedSNs.includes(sn)) {
-                  scannedSNs.push(sn);
-                  document.getElementById("sn-list").innerHTML += `<span class='tag'>${sn}</span>`;
-                  document.getElementById("result-box").classList.remove("hidden");
-                }
-              },
-              onFail: function (err) {
-                document.getElementById("error-box").innerText = `❌ 掃碼錯誤：\n${JSON.stringify(err)}`;
-              }
-            });
-          });
-          dd.error(err => {
-            document.getElementById("error-box").innerText = `❌ JSAPI 啟動錯誤：\n${JSON.stringify(err)}`;
-          });
-        })
-        .catch(err => {
-          document.getElementById("error-box").innerText = `❌ 無法取得簽名：\n${err}`;
-        });
-    }
 
-    function parseSN(text) {
-      if (!text) return null;
-      const urlParams = new URLSearchParams(text.split("?")[1]);
-      return urlParams.get("sn") || text;
-    }
+      log("已偵測到 dd 物件，JSAPI 載入正常");
 
-    function submitAll() {
-      if (scannedSNs.length === 0) {
-        document.getElementById("status").innerText = "⚠️ 請先掃描至少一個瓶號";
-        return;
-      }
-      fetch(webhookURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: mode,
-          shop: shopName,
-          sn_list: scannedSNs,
-          operator: "釘釘用戶"
-        })
-      }).then(res => {
-        if (res.ok) {
-          document.getElementById("status").innerText = "✅ 已成功送出";
-          scannedSNs = [];
-          document.getElementById("sn-list").innerHTML = "";
-        } else {
-          document.getElementById("status").innerText = "❌ 傳送失敗";
+      // 三、呼叫 dd.runtime.info 測試權限
+      dd.runtime.info({
+        onSuccess: function(info) {
+          log("dd.runtime.info 回傳成功：" + JSON.stringify(info));
+        },
+        onFail: function(err) {
+          log("dd.runtime.info 呼叫失敗：" + JSON.stringify(err), false);
         }
       });
-    }
+    }, 500);
   </script>
 </body>
 </html>
