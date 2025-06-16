@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>倉管掃碼系統｜強化掃描版</title>
+  <title>倉管掃碼系統｜強化掃描修正版</title>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 20px; text-align: center; }
@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h2>📦 倉庫掃碼系統（曲面強化版）</h2>
+  <h2>📦 倉庫掃碼系統（曲面強化修正版）</h2>
 
   <button onclick="setMode('register')">📦 出貨模式</button>
   <button onclick="setMode('revoke')">🔁 回收模式</button>
@@ -29,11 +29,9 @@
   </div>
 
   <div id="shop-name"></div>
-
   <div id="video-container" style="display:none">
     <video id="preview" autoplay muted playsinline></video>
   </div>
-
   <div id="status"></div>
   <div id="sn-list"></div>
 
@@ -55,10 +53,9 @@
     let shopName = "";
     let mode = "";
     let scanned = [];
-
     const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    async function setMode(m) {
+    function setMode(m) {
       mode = m;
       scanned = [];
       document.querySelector("button[onclick*=register]").style.display = "none";
@@ -83,7 +80,7 @@
       shopBlock.style.display = "none";
       videoContainer.style.display = "block";
       submitBtn.style.display = "block";
-      status.innerText = "🔄 相機啟動中...";
+      status.innerText = "🔄 啟動鏡頭中，請確認允許相機權限...";
 
       try {
         await codeReader.decodeFromVideoDevice(null, video, (result, err) => {
@@ -100,7 +97,8 @@
           }
         });
       } catch (e) {
-        status.innerText = `❌ 鏡頭啟用失敗：\n${e.message}`;
+        console.error("鏡頭錯誤：", e);
+        status.innerText = `❌ 鏡頭啟用失敗：\n${e.message || e}`;
       }
     }
 
