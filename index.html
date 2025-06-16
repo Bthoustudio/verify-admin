@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>倉庫掃碼系統（修復版）</title>
+  <title>倉庫掃碼系統（最穩定版）</title>
   <meta name="robots" content="noindex, nofollow" />
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
   <style>
@@ -47,7 +47,7 @@
 </head>
 <body>
 
-  <h2>📦 倉庫掃碼系統（修復版）</h2>
+  <h2>📦 倉庫掃碼系統（最穩定版）</h2>
   <div id="mode-selection">
     <button onclick="setMode('register')">📦 出貨模式</button>
     <button onclick="setMode('revoke')">🔁 回收模式</button>
@@ -79,8 +79,42 @@
     let mode = null;
     let shopName = "";
     let scannedSNs = [];
-    let codeReader;
+    let codeReader = new ZXing.BrowserMultiFormatReader();
+
     const videoElement = document.getElementById("preview");
+    const status = document.getElementById("status");
+
+    async function startCameraAndScan() {
+      status.textContent = "🔄 啟動鏡頭中，請確認允許相機權限...";
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoElement.srcObject = stream;
+        videoElement.classList.remove("hidden");
+        document.getElementById("result-box").classList.remove("hidden");
+        status.textContent = "📸 鏡頭已啟動，請對準瓶身 QR Code";
+
+        codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
+          if (result) {
+            let decodedText = result.getText();
+            let sn = decodedText.includes("?") ? new URLSearchParams(decodedText.split("?")[1]).get("sn") : decodedText;
+            if (sn && !scannedSNs.includes(sn)) {
+              scannedSNs.push(sn);
+              updateUI();
+              status.textContent = `✅ 掃到瓶號：${sn}`;
+            } else {
+              status.textContent = `⚠️ 已掃過或無效`;
+            }
+          }
+        });
+      } catch (err) {
+        console.error("相機錯誤:", err);
+        status.textContent = `❌ 無法啟用鏡頭：\n${err.message || err}`;
+      }
+    }
+
+    function updateUI() {
+      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
+    }
 
     function setMode(selectedMode) {
       mode = selectedMode;
@@ -89,27 +123,19 @@
         document.getElementById("shop-select").classList.remove("hidden");
       } else {
         document.getElementById("shop-display").textContent = `🔁 回收模式`;
-        startScanner();
+        startCameraAndScan();
       }
     }
 
     function submitAll() {
       if (mode === "register") {
-        if (!shopName) {
-          document.getElementById("status").textContent = "⚠️ 請先選擇出貨店家";
-          return;
-        }
-        if (scannedSNs.length === 0) {
-          document.getElementById("status").textContent = "⚠️ 請掃描至少一組瓶號後再送出";
-          return;
-        }
+        if (!shopName) return status.textContent = "⚠️ 請先選擇出貨店家";
+        if (scannedSNs.length === 0) return status.textContent = "⚠️ 請掃描至少一組瓶號後再送出";
       }
-      if (mode === "revoke" && scannedSNs.length === 0) {
-        document.getElementById("status").textContent = "⚠️ 回收模式請至少掃描一組瓶號";
-        return;
-      }
+      if (mode === "revoke" && scannedSNs.length === 0) return status.textContent = "⚠️ 回收模式請至少掃描一組瓶號";
+
       const payload = {
-        mode: mode,
+        mode,
         shop: shopName,
         sn_list: scannedSNs,
         operator: "倉管"
@@ -120,57 +146,16 @@
         body: JSON.stringify(payload)
       }).then(res => {
         if (res.ok) {
-          document.getElementById("status").textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
+          status.textContent = "✅ 資料已送出，可繼續掃描或返回主頁。";
         } else {
-          document.getElementById("status").textContent = "❌ 資料送出失敗";
+          status.textContent = "❌ 資料送出失敗";
         }
       }).catch(err => {
-        document.getElementById("status").textContent = `❌ 發送錯誤：${err}`;
-      });
-    }
-
-    function updateUI() {
-      document.getElementById("sn-list").innerHTML = scannedSNs.map(sn => `<span class="tag">${sn}</span>`).join('');
-    }
-
-    function startScanner() {
-      document.getElementById("preview").classList.remove("hidden");
-      document.getElementById("result-box").classList.remove("hidden");
-      document.getElementById("status").textContent = "正在啟動鏡頭...請確認允許相機權限";
-
-      codeReader.decodeFromConstraints(
-        { video: { facingMode: "environment" } },
-        videoElement,
-        (result, err) => {
-          if (result) {
-            let decodedText = result.getText();
-            let sn = null;
-            if (decodedText.includes("?")) {
-              const urlParams = new URLSearchParams(decodedText.split("?")[1]);
-              sn = urlParams.get("sn");
-            } else {
-              sn = decodedText;
-            }
-            if (sn && !scannedSNs.includes(sn)) {
-              scannedSNs.push(sn);
-              updateUI();
-              document.getElementById("status").textContent = `✅ 掃到瓶號：${sn}`;
-            } else {
-              document.getElementById("status").textContent = `⚠️ 已掃過或無效`;
-            }
-          } else if (err && !(err instanceof ZXing.NotFoundException)) {
-            console.error("掃描錯誤：", err);
-            document.getElementById("status").textContent = `❌ 鏡頭啟動失敗：\n${err}`;
-          }
-        }
-      ).catch(err => {
-        console.error("鏡頭啟動錯誤：", err);
-        document.getElementById("status").textContent = `❌ 無法啟用鏡頭：\n${err}\n請使用 Safari / Chrome 並確認權限設定。`;
+        status.textContent = `❌ 發送錯誤：${err.message || err}`;
       });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      codeReader = new ZXing.BrowserMultiFormatReader();
       fetch(shopDataURL)
         .then(res => res.json())
         .then(data => {
@@ -185,7 +170,7 @@
           });
         })
         .catch(err => {
-          document.getElementById("status").textContent = `❌ 店家資料讀取失敗：\n${err}`;
+          status.textContent = `❌ 店家清單讀取失敗：\n${err.message || err}`;
         });
 
       document.getElementById("shop-dropdown").addEventListener("change", function () {
@@ -194,7 +179,7 @@
           shopName = value;
           document.getElementById("shop-display").textContent = `✅ 出貨對象：${shopName}`;
           document.getElementById("instructions").innerText = "請將瓶身 QR 對準鏡頭中央，稍停留 1~2 秒";
-          startScanner();
+          startCameraAndScan();
         }
       });
     });
