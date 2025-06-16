@@ -2,112 +2,128 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>防偽瓶號查驗系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>水宅倉庫掃碼系統（釘釘專用）</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://g.alicdn.com/dingding/open-develop/1.12.3/dingtalk.open.js"></script>
+  <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
 </head>
-<body class="bg-gray-100 text-gray-800 p-4">
-  <div class="max-w-xl mx-auto bg-white p-6 rounded-xl shadow-md">
-    <h1 class="text-2xl font-bold mb-4">水宅研居｜防偽瓶號查驗系統</h1>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-xl mx-auto bg-white p-6 rounded-xl shadow">
+    <h1 class="text-xl font-bold mb-4">📦 水宅倉庫掃碼系統</h1>
 
     <div class="mb-4">
-      <label for="mode" class="block font-medium mb-1">選擇模式</label>
+      <label class="block font-medium mb-1">選擇模式</label>
       <select id="mode" class="w-full border rounded p-2">
         <option value="">請選擇</option>
-        <option value="register">📦 出貨模式</option>
+        <option value="register">📤 出貨模式</option>
         <option value="revoke">♻️ 回收模式</option>
       </select>
     </div>
 
-    <div class="mb-4" id="storeSelectContainer" style="display: none;">
-      <label for="store" class="block font-medium mb-1">選擇分店</label>
+    <div id="storeWrap" class="mb-4 hidden">
+      <label class="block font-medium mb-1">選擇分店</label>
       <select id="store" class="w-full border rounded p-2"></select>
     </div>
 
     <div class="mb-4">
-      <button id="scanButton" class="bg-blue-600 text-white px-4 py-2 rounded w-full">📷 掃描 QR Code</button>
+      <button id="scanBtn" class="bg-blue-600 text-white px-4 py-2 w-full rounded">📷 掃描 QR Code</button>
     </div>
 
-    <div class="mb-4">
-      <ul id="logList" class="text-sm space-y-1"></ul>
-    </div>
+    <div id="reader" class="mb-4 hidden"></div>
+
+    <ul id="logList" class="text-sm space-y-1"></ul>
   </div>
 
   <script>
-    const modeSelect = document.getElementById("mode");
-    const storeSelect = document.getElementById("store");
-    const scanButton = document.getElementById("scanButton");
-    const storeSelectContainer = document.getElementById("storeSelectContainer");
+    const modeEl = document.getElementById("mode");
+    const storeWrap = document.getElementById("storeWrap");
+    const storeEl = document.getElementById("store");
+    const scanBtn = document.getElementById("scanBtn");
+    const readerEl = document.getElementById("reader");
     const logList = document.getElementById("logList");
 
-    modeSelect.addEventListener("change", () => {
-      const mode = modeSelect.value;
-      storeSelectContainer.style.display = mode === "register" ? "block" : "none";
-      log(`模式切換為：${mode === "register" ? "出貨" : "回收"}`);
+    let html5QrCode;
+
+    modeEl.addEventListener("change", () => {
+      const mode = modeEl.value;
+      storeWrap.style.display = (mode === "register") ? "block" : "none";
+      log("切換模式：" + (mode === "register" ? "📤 出貨模式" : "♻️ 回收模式"));
     });
 
-    scanButton.addEventListener("click", () => {
-      if (typeof dd === "undefined") {
-        log("❌ 無法啟動掃碼器，dd 尚未注入");
-        alert("請從釘釘應用進入系統，否則無法啟用掃碼功能。");
-        return;
-      }
-      dd.ready(() => {
-        dd.biz.util.scan({
-          type: "qrCode",
-          onSuccess: function (res) {
-            log("✅ 掃描結果：" + res.text);
-          },
-          onFail: function (err) {
-            log("❌ 掃描失敗：" + JSON.stringify(err));
-          },
+    scanBtn.addEventListener("click", () => {
+      if (typeof window.dd !== "undefined") {
+        window.dd.ready(() => {
+          window.dd.biz.util.scan({
+            type: "qrCode",
+            onSuccess: function (res) {
+              log("✅ 掃描成功：" + res.text);
+              // 可在這裡進行送出 res.text 的 API 呼叫
+            },
+            onFail: function (err) {
+              log("❌ 掃描失敗：" + JSON.stringify(err));
+            }
+          });
         });
-      });
+      } else {
+        log("⚠️ 無 JSAPI，改用 HTML5 QR 掃碼");
+        readerEl.classList.remove("hidden");
+        if (!html5QrCode) {
+          html5QrCode = new Html5Qrcode("reader");
+        }
+        html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: 250
+          },
+          (decodedText) => {
+            log("✅ 掃碼成功：" + decodedText);
+            html5QrCode.stop();
+          },
+          (err) => {}
+        );
+      }
     });
 
-    function log(message) {
+    function log(msg) {
       const li = document.createElement("li");
-      li.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
       logList.prepend(li);
     }
 
-    // 自動載入店家
     fetch("https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec")
-      .then((res) => res.json())
-      .then((data) => {
-        data.forEach((item) => {
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(item => {
           const opt = document.createElement("option");
           opt.value = item.store;
           opt.textContent = item.store;
-          storeSelect.appendChild(opt);
+          storeEl.appendChild(opt);
         });
+        log("✅ 成功載入分店清單");
       })
-      .catch(() => {
-        log("❌ 無法載入店家清單");
-      });
+      .catch(() => log("❌ 載入分店清單失敗"));
 
     // JSAPI 偵錯提示
     window.addEventListener("load", () => {
       setTimeout(() => {
-        if (typeof dd === "undefined") {
+        if (typeof window.dd === "undefined") {
           const warn = document.createElement("div");
+          warn.textContent = "❌ JSAPI 尚未注入，請從釘釘應用圖示進入";
           warn.style.position = "fixed";
           warn.style.top = "20px";
           warn.style.left = "50%";
           warn.style.transform = "translateX(-50%)";
-          warn.style.backgroundColor = "#ff4d4f";
+          warn.style.backgroundColor = "#e53e3e";
           warn.style.color = "white";
-          warn.style.padding = "12px 20px";
+          warn.style.padding = "12px 24px";
           warn.style.borderRadius = "8px";
           warn.style.zIndex = "9999";
-          warn.style.fontSize = "16px";
-          warn.innerText = "❌ JSAPI 尚未注入，請從釘釘應用圖示進入";
+          warn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
           document.body.appendChild(warn);
-        } else {
-          console.log("✅ JSAPI 已注入，dd 物件可用");
         }
-      }, 1000);
+      }, 800);
     });
   </script>
 </body>
