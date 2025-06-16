@@ -3,155 +3,63 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>水宅倉庫掃碼系統｜釘釘偵測版</title>
+  <title>釘釘 corpId 偵測工具</title>
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.0.0/dingtalk.open.js"></script>
   <style>
     body {
       font-family: sans-serif;
-      padding: 20px;
-      background: #f2f6fa;
+      padding: 40px;
       text-align: center;
+      background-color: #f9f9f9;
     }
-    select, button {
-      padding: 10px;
-      font-size: 16px;
-      margin: 10px;
-      border-radius: 8px;
+    h2 {
+      color: #05668d;
     }
-    #result, #scan-log {
-      margin-top: 20px;
-      font-size: 16px;
-      word-break: break-word;
-    }
-    .mode-btn {
-      padding: 12px 18px;
+    #corp {
+      margin-top: 30px;
       font-size: 18px;
-      margin: 8px;
-      background-color: #05668d;
-      color: white;
+      word-break: break-all;
+      color: #333;
+      background: #eef;
+      padding: 10px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px 20px;
+      margin-top: 20px;
       border: none;
+      background: #00aaff;
+      color: white;
       border-radius: 8px;
       cursor: pointer;
-    }
-    #warning {
-      color: red;
-      font-weight: bold;
-      margin-top: 20px;
-      display: none;
     }
   </style>
 </head>
 <body>
-  <h2>📦 水宅倉庫掃碼系統</h2>
+  <h2>🔍 釘釘 corpId 自動偵測工具</h2>
+  <p>點擊下方按鈕，自動取得目前使用者所屬企業 corpId。</p>
 
-  <div id="warning">⚠️ 無法啟動 DingTalk JSAPI，請確認此頁是否由釘釘工作台開啟</div>
+  <button onclick="getCorpId()">📋 取得 corpId</button>
 
-  <div>
-    <button class="mode-btn" onclick="setMode('register')">出貨模式</button>
-    <button class="mode-btn" onclick="setMode('revoke')">回收模式</button>
-  </div>
-
-  <div id="store-select" style="display:none">
-    <label for="store">選擇店家：</label>
-    <select id="store"></select>
-  </div>
-
-  <button id="scan-btn">📷 掃描 QR Code</button>
-
-  <div id="scan-log"></div>
-  <button id="submit-btn" style="display:none">📤 傳送瓶號</button>
+  <div id="corp"></div>
 
   <script>
-    let mode = '';
-    let snList = [];
-    let operator = 'DingTalk';
-
-    const storeSelect = document.getElementById('store');
-    const storeBlock = document.getElementById('store-select');
-    const scanLog = document.getElementById('scan-log');
-    const submitBtn = document.getElementById('submit-btn');
-    const scanBtn = document.getElementById('scan-btn');
-    const warning = document.getElementById('warning');
-
-    function setMode(selectedMode) {
-      mode = selectedMode;
-      snList = [];
-      scanLog.innerHTML = '';
-      submitBtn.style.display = 'none';
-
-      if (mode === 'register') {
-        storeBlock.style.display = 'block';
-      } else {
-        storeBlock.style.display = 'none';
-      }
-    }
-
-    // 檢查 JSAPI 是否可用
-    window.addEventListener('DOMContentLoaded', () => {
-      if (!window.dd || !dd.biz || !dd.biz.util) {
-        warning.style.display = 'block';
-      }
-    });
-
-    // 取得店家清單
-    fetch('https://script.google.com/macros/s/AKfycbzdbRSV-DBTf5z_FJkVDNRrqxNnUy2tddIulq-NTGBtlEj3Vu_A7Yf0gvv6mNCJyJpeQQ/exec')
-      .then(res => res.json())
-      .then(data => {
-        data.forEach(row => {
-          if (row.分店) {
-            const option = document.createElement('option');
-            option.value = row.分店;
-            option.textContent = row.分店;
-            storeSelect.appendChild(option);
-          }
-        });
-      });
-
-    // 掃碼功能（簡化）
-    scanBtn.addEventListener('click', () => {
-      if (!dd || !dd.biz || !dd.biz.util) {
-        alert('❌ DingTalk JSAPI 尚未啟動，請確認從釘釘工作台進入');
+    function getCorpId() {
+      if (!dd || !dd.runtime) {
+        alert("❌ 無法啟動 DingTalk JSAPI");
         return;
       }
 
-      dd.biz.util.scan({
-        type: 'qrCode',
-        onSuccess: function (data) {
-          const text = data.text;
-          const sn = text.includes('?') ? new URLSearchParams(text.split('?')[1]).get('sn') : text;
-          if (sn) {
-            snList.push(sn);
-            scanLog.innerHTML += `✅ ${sn}<br>`;
-            submitBtn.style.display = 'inline-block';
-          } else {
-            scanLog.innerHTML += `⚠️ 無效 QR：${text}<br>`;
-          }
+      dd.runtime.permission.requestAuthCode({
+        corpId: '', // 可不填，讓釘釘自動填入目前 corpId
+        onSuccess: function (result) {
+          document.getElementById('corp').innerHTML = `✅ corpId 為：<br><b>${result.corpId || '無資料，請再試一次'}</b>`;
         },
         onFail: function (err) {
-          scanLog.innerHTML += `❌ 掃碼錯誤：${JSON.stringify(err)}<br>`;
+          document.getElementById('corp').innerHTML = `❌ 錯誤：${JSON.stringify(err)}`;
         }
-      });
-    });
-
-    // 送出掃描資料
-    submitBtn.onclick = function () {
-      const store = mode === 'register' ? storeSelect.value : '';
-      fetch('https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, store, sn_list: snList, operator })
-      })
-      .then(res => {
-        if (res.ok) {
-          scanLog.innerHTML += '<br>📤 傳送成功';
-          snList = [];
-          submitBtn.style.display = 'none';
-        } else {
-          scanLog.innerHTML += '<br>❌ 傳送失敗';
-        }
-      })
-      .catch(err => {
-        scanLog.innerHTML += `<br>❌ 發送錯誤：${err.message}`;
       });
     }
   </script>
