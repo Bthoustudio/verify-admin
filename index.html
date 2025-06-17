@@ -166,10 +166,15 @@ function updateSnList() {
           onSuccess: function (res) {
             const sn = new URLSearchParams(res.text.split("?")[1]).get("sn");
             if (sn && !scanned.includes(sn)) {
-              if (existingSNs.includes(sn)) {
-                log("❌ 此瓶號已存在於資料庫中：" + sn);
+              if (mode === "register" && existingSNs.includes(sn)) {
+                log("❌ 此瓶號已存在資料庫中，不可重複出貨：" + sn);
                 return;
               }
+              if (mode === "revoke" && !existingSNs.includes(sn)) {
+                log("❌ 資料庫中查無此瓶號，無法進行回收：" + sn);
+                return;
+              }
+
               scanned.push(sn);
               log("✅ 掃描成功：" + sn);
               updateSnList();
