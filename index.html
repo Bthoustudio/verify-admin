@@ -8,7 +8,16 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
 </head>
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-100 p-6 relative">
+  <!-- loading overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-50 text-center">
+    <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    <p class="text-lg font-semibold text-gray-700">目前正在等待釘釘啟動中…</p>
+  </div>
+
   <div class="max-w-xl mx-auto bg-white p-6 rounded-xl shadow">
     <h1 class="text-xl font-bold mb-4">📦 水宅倉庫掃碼系統</h1>
 
@@ -38,12 +47,14 @@
   </div>
 
   <script>
+    const enableFallback = false; // fallback 模式開關
     const modeEl = document.getElementById("mode");
     const storeWrap = document.getElementById("storeWrap");
     const storeEl = document.getElementById("store");
     const scanBtn = document.getElementById("scanBtn");
     const submitBtn = document.getElementById("submitBtn");
     const logList = document.getElementById("logList");
+    const loadingOverlay = document.getElementById("loadingOverlay");
 
     let mode = "";
     let store = "";
@@ -68,7 +79,12 @@
       }
 
       if (typeof window.dd === "undefined") {
-        alert("❌ JSAPI 尚未注入，請從釘釘應用圖示重新開啟。");
+        if (enableFallback) {
+          alert("⚠️ JSAPI 未啟用，將使用備用掃碼方案");
+          // fallback 機制可以在這裡加入
+        } else {
+          alert("❌ JSAPI 尚未注入，請關閉後從釘釘應用圖示重新開啟。");
+        }
         return;
       }
 
@@ -139,12 +155,13 @@
     function waitForJSAPI(retry = 20) {
       if (typeof window.dd !== "undefined") {
         log("✅ 偵測到 JSAPI 已注入");
+        loadingOverlay.classList.add("hidden");
         return;
       }
       if (retry > 0) {
         setTimeout(() => waitForJSAPI(retry - 1), 500);
       } else {
-        alert("❌ 無法偵測 JSAPI，請關閉後從釘釘應用圖示重新開啟");
+        loadingOverlay.querySelector("p").textContent = "❌ 無法偵測釘釘 JSAPI，請關閉後重新啟動";
       }
     }
 
