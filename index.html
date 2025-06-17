@@ -136,19 +136,21 @@
       })
       .catch(() => log("❌ 載入分店清單失敗"));
 
-    // ✅ 加入 retry 偵測機制
-    function waitForJSAPI(retry = 10) {
+    function waitForJSAPI(retry = 20) {
       if (typeof window.dd !== "undefined") {
         log("✅ 偵測到 JSAPI 已注入");
         return;
       }
       if (retry > 0) {
-        setTimeout(() => waitForJSAPI(retry - 1), 400);
+        setTimeout(() => waitForJSAPI(retry - 1), 500);
       } else {
-        alert("❌ 無法偵測到 JSAPI，請關閉後從釘釘應用圖示重新開啟");
+        alert("❌ 無法偵測 JSAPI，請關閉後從釘釘應用圖示重新開啟");
       }
     }
-    window.onload = () => waitForJSAPI();
+
+    document.addEventListener("DOMContentLoaded", () => {
+      waitForJSAPI();
+    });
   </script>
 </body>
 </html>
