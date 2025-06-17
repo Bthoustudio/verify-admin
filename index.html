@@ -15,7 +15,10 @@
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
     </svg>
-    <p class="text-lg font-semibold text-gray-700">目前正在等待釘釘啟動中…</p>
+    <p id="loadingMessage" class="text-lg font-semibold text-gray-700">目前正在等待釘釘啟動中…</p>
+    <button id="retryBtn" onclick="location.reload()" class="hidden mt-6 bg-red-600 text-white px-4 py-2 rounded">
+      🔄 重新整理頁面
+    </button>
   </div>
 
   <div class="max-w-xl mx-auto bg-white p-6 rounded-xl shadow">
@@ -47,7 +50,6 @@
   </div>
 
   <script>
-    const enableFallback = false; // fallback 模式開關
     const modeEl = document.getElementById("mode");
     const storeWrap = document.getElementById("storeWrap");
     const storeEl = document.getElementById("store");
@@ -55,6 +57,8 @@
     const submitBtn = document.getElementById("submitBtn");
     const logList = document.getElementById("logList");
     const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingMessage = document.getElementById("loadingMessage");
+    const retryBtn = document.getElementById("retryBtn");
 
     let mode = "";
     let store = "";
@@ -79,12 +83,7 @@
       }
 
       if (typeof window.dd === "undefined") {
-        if (enableFallback) {
-          alert("⚠️ JSAPI 未啟用，將使用備用掃碼方案");
-          // fallback 機制可以在這裡加入
-        } else {
-          alert("❌ JSAPI 尚未注入，請關閉後從釘釘應用圖示重新開啟。");
-        }
+        alert("❌ JSAPI 尚未注入，請從釘釘應用圖示重新開啟。");
         return;
       }
 
@@ -161,7 +160,16 @@
       if (retry > 0) {
         setTimeout(() => waitForJSAPI(retry - 1), 500);
       } else {
-        loadingOverlay.querySelector("p").textContent = "❌ 無法偵測釘釘 JSAPI，請關閉後重新啟動";
+        loadingMessage.innerHTML = `
+          <span class="text-red-600 font-bold text-lg">🔒 尚未成功啟用掃描功能</span><br/><br/>
+          請依下列方式操作：<br/>
+          1️⃣ 關閉此畫面<br/>
+          2️⃣ 回到釘釘「工作台」首頁<br/>
+          3️⃣ 點選「水宅倉庫掃碼系統」圖示重新啟動<br/><br/>
+          ✅ 建議使用 Wi-Fi 或 5G 穩定網路<br/>
+          ❓ 若仍無法啟動請聯繫資訊窗口協助
+        `;
+        retryBtn.classList.remove("hidden");
       }
     }
 
