@@ -9,6 +9,15 @@
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
 </head>
 <body class="bg-gray-100 p-6 relative">
+  
+  <div id="snLoadingOverlay" class="fixed inset-0 bg-white bg-opacity-80 flex flex-col items-center justify-center z-40 text-center">
+    <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    <p class="text-lg font-semibold text-gray-700">📡 正在載入瓶號資料中，請稍候…</p>
+  </div>
+
   <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-50 text-center">
     <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -68,6 +77,22 @@
     let mode = "";
     let store = "";
     let scanned = [];
+
+    let existingSNs = [];
+
+    function preloadSNs() {
+      fetch("https://script.google.com/macros/s/AKfycbzffG00l3w43WLGpWIQ4N0bNgMbGwIWmvQV1ibgfrekw-DpGOZNHNlj_yao02QNTaLkhQ/exec")
+        .then(res => res.json())
+        .then(data => {
+          existingSNs = data;
+          log("✅ 已載入瓶號清單，共 " + existingSNs.length + " 筆");
+          document.getElementById("snLoadingOverlay").classList.add("hidden");
+        })
+        .catch(() => {
+          alert("🚫 載入瓶號資料失敗，請確認網路狀態或聯絡資訊窗口");
+        });
+    }
+
 
 const snListWrap = document.getElementById("snListWrap");
 const snList = document.getElementById("snList");
@@ -141,6 +166,10 @@ function updateSnList() {
           onSuccess: function (res) {
             const sn = new URLSearchParams(res.text.split("?")[1]).get("sn");
             if (sn && !scanned.includes(sn)) {
+              if (existingSNs.includes(sn)) {
+                log("❌ 此瓶號已存在於資料庫中：" + sn);
+                return;
+              }
               scanned.push(sn);
               log("✅ 掃描成功：" + sn);
               updateSnList();
@@ -228,6 +257,7 @@ function updateSnList() {
 
     document.addEventListener("DOMContentLoaded", () => {
       waitForJSAPI();
+  preloadSNs();
     });
   </script>
 </body>
