@@ -45,7 +45,13 @@
       <button id="submitBtn" class="bg-green-600 text-white px-4 py-2 w-full rounded hidden">📤 送出資料</button>
     </div>
 
-    <ul id="logList" class="text-sm space-y-1"></ul>
+    
+<div id="snListWrap" class="mb-4 hidden">
+  <label class="block font-medium mb-1">📋 已掃描瓶號</label>
+  <ul id="snList" class="bg-gray-50 border rounded p-3 space-y-2 text-sm max-h-48 overflow-auto"></ul>
+</div>
+
+  <ul id="logList" class="text-sm space-y-1"></ul>
   </div>
 
   <script>
@@ -62,6 +68,36 @@
     let mode = "";
     let store = "";
     let scanned = [];
+
+const snListWrap = document.getElementById("snListWrap");
+const snList = document.getElementById("snList");
+
+function updateSnList() {
+  snList.innerHTML = "";
+  scanned.forEach(sn => {
+    const li = document.createElement("li");
+    li.className = "flex justify-between items-center bg-white p-2 rounded shadow-sm";
+
+    const span = document.createElement("span");
+    span.textContent = sn;
+
+    const btn = document.createElement("button");
+    btn.textContent = "❌";
+    btn.className = "text-red-500 hover:underline text-xs";
+    btn.onclick = () => {
+      scanned = scanned.filter(s => s !== sn);
+      updateSnList();
+    };
+
+    li.appendChild(span);
+    li.appendChild(btn);
+    snList.appendChild(li);
+  });
+
+  snListWrap.classList.toggle("hidden", scanned.length === 0);
+  submitBtn.classList.toggle("hidden", scanned.length === 0);
+}
+
 
     // 🔄 如果是釘釘環境但 dd 沒注入，且尚未重載過，強制 reload 一次
     if (navigator.userAgent.includes("DingTalk") && typeof window.dd === "undefined") {
@@ -107,7 +143,7 @@
             if (sn && !scanned.includes(sn)) {
               scanned.push(sn);
               log("✅ 掃描成功：" + sn);
-              submitBtn.classList.remove("hidden");
+              updateSnList();
             } else {
               log("⚠️ 無效或重複瓶號");
             }
