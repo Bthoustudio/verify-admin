@@ -168,7 +168,7 @@ function updateSnList() {
         if (res.ok) {
           log("✅ 資料已送出");
           scanned = [];
-          submitBtn.classList.add("hidden");
+          updateSnList();
         } else {
           log("❌ 資料送出失敗");
         }
