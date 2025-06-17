@@ -9,7 +9,6 @@
   <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
 </head>
 <body class="bg-gray-100 p-6 relative">
-  <!-- loading overlay -->
   <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-50 text-center">
     <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -63,6 +62,19 @@
     let mode = "";
     let store = "";
     let scanned = [];
+
+    // 🔄 如果是釘釘環境但 dd 沒注入，且尚未重載過，強制 reload 一次
+    if (navigator.userAgent.includes("DingTalk") && typeof window.dd === "undefined") {
+      if (!localStorage.getItem("dd_retry")) {
+        localStorage.setItem("dd_retry", "1");
+        location.reload();
+      }
+    }
+
+    // reload 後清除旗標，避免循環
+    if (localStorage.getItem("dd_retry")) {
+      setTimeout(() => localStorage.removeItem("dd_retry"), 3000);
+    }
 
     modeEl.addEventListener("change", () => {
       mode = modeEl.value;
