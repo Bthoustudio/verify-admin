@@ -160,10 +160,15 @@ function updateSnList() {
         log("⚠️ 尚未掃描任何瓶號");
         return;
       }
+      const payload = scanned.map(sn => ({
+        sn,
+        model: sn.split("-")[0]
+      }));
+
       fetch("https://hook.us2.make.com/s6ibl5e715634fhq7ess7sc5bv0fuj6h", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, shop: store, sn_list: scanned, operator: "倉管" })
+        body: JSON.stringify({ mode, shop: store, operator: "倉管", data: payload })
       }).then(res => {
         if (res.ok) {
           log("✅ 資料已送出");
